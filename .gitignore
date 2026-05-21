@@ -16,3 +16,4 @@ android/.gradle/
 .env
 .env.local
 coverage/
+/.claude/settings.local.json
