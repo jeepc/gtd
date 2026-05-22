@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LoopLockup } from '../components/Logo.tsx';
 
 export default function AboutPage() {
   const navigate = useNavigate();
@@ -26,8 +27,9 @@ export default function AboutPage() {
   return (
     <>
       <span className="back-link" onClick={() => navigate(-1)}>← 返回</span>
-      <div className="title">关于</div>
-      <div className="section" style={{ marginTop: 16 }}>
+      <div style={{ marginTop: 8, marginBottom: 4 }}><LoopLockup height={36} /></div>
+      <div className="meta" style={{ marginBottom: 16 }}>一个未闭合的圆，等着一个橙点把它合上。</div>
+      <div className="section">
         <div>版本：0.1.0</div>
         <div>数据目录：<code>{vaultRoot}</code></div>
         <div className="meta">数据为本地 Markdown 文件。可用 Obsidian / Logseq 直接打开。</div>

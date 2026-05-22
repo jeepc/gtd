@@ -1,23 +1,24 @@
 :root {
   color-scheme: light dark;
-  --bg: #ffffff;
-  --fg: #1a1a1a;
+  /* Loop brand palette — see /brand/brand-design.md */
+  --bg: #FAFAF7;        /* warm white */
+  --fg: #1A1A1A;        /* near black */
   --muted: #6b7280;
   --border: #e5e7eb;
-  --accent: #2563eb;
-  --tag-bg: #eef2ff;
-  --tag-fg: #4338ca;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans CJK SC', 'PingFang SC', sans-serif;
+  --accent: #FF5C39;    /* coral orange — the next-action dot */
+  --tag-bg: #fff1ec;
+  --tag-fg: #b3401d;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans CJK SC', 'PingFang SC', sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0b0b0c;
-    --fg: #e5e7eb;
+    --fg: #FAFAF7;
     --muted: #9ca3af;
     --border: #27272a;
-    --accent: #60a5fa;
-    --tag-bg: #1e293b;
-    --tag-fg: #93c5fd;
+    --accent: #FF5C39;
+    --tag-bg: #2a1812;
+    --tag-fg: #ff8a6a;
   }
 }
 

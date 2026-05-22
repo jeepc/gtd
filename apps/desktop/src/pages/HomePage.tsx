@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import QuickInput from '../components/QuickInput.tsx';
 import EntryList from '../components/EntryList.tsx';
 import AskAI from '../components/AskAI.tsx';
+import { LoopLockup } from '../components/Logo.tsx';
 import { useVaultStore } from '../state/vaultStore.ts';
 
 export default function HomePage() {
@@ -58,7 +59,7 @@ export default function HomePage() {
   return (
     <>
       <div className="top-bar">
-        <div className="title">GTD</div>
+        <div className="title" aria-label="Loop"><LoopLockup height={28} /></div>
         <div className="spacer" />
         <span className="meta">{syncStatus === 'syncing' ? '同步中…' : ''}</span>
         <button onClick={() => navigate('/search')}>搜索</button>

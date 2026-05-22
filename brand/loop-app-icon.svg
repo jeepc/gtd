@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Loop app icon">
+  <title>Loop</title>
+  <desc>Loop — app icon, iOS squircle</desc>
+
+  <!-- iOS-style rounded square background -->
+  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="#FAFAF7"/>
+
+  <!-- Icon scaled to ~60% of canvas, centered -->
+  <g transform="translate(512 512) scale(10)">
+    <path d="M 0 -28 A 28 28 0 1 1 -28 0"
+          fill="none"
+          stroke="#1A1A1A"
+          stroke-width="10"
+          stroke-linecap="round"/>
+    <circle cx="0" cy="-28" r="7" fill="#FF5C39"/>
+  </g>
+</svg>
