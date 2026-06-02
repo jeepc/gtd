@@ -10,6 +10,9 @@ use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{Manager, WindowEvent};
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 
@@ -181,12 +184,30 @@ fn mcp_health_check(binary_path: String, vault_root: String) -> Result<McpHealth
     Ok(health)
 }
 
+/// Bring the main window back to the foreground from a hidden/minimized state.
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
 fn main() {
     tauri::Builder::default()
+        // Registered first per plugin docs: when a second instance is launched it
+        // fires this callback in the running process (instead of spawning a new
+        // window) so we just refocus the existing window, then the new process exits.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            show_main_window(app);
+        }))
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_http::init())
+        // macOS launcher defaults to LaunchAgent; the explicit setter is
+        // cfg(macos)-only, so we rely on the default to stay cross-platform.
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             export_vault,
             secret_save,
@@ -194,6 +215,45 @@ fn main() {
             secret_delete,
             mcp_health_check,
         ])
+        .setup(|app| {
+            // System tray. Left-click restores the window; the menu offers an
+            // explicit "显示主窗口" plus a real "退出" that actually quits the process
+            // (closing the window only hides it — see on_window_event below).
+            let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "退出 Loop", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &quit])?;
+
+            TrayIconBuilder::with_id("main-tray")
+                .icon(app.default_window_icon().unwrap().clone())
+                .tooltip("Loop")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "show" => show_main_window(app),
+                    "quit" => app.exit(0),
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        show_main_window(tray.app_handle());
+                    }
+                })
+                .build(app)?;
+            Ok(())
+        })
+        // Closing the window hides it to the tray instead of quitting; the only
+        // path that ends the process is the tray's "退出" item (app.exit).
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

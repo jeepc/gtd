@@ -8,13 +8,20 @@ edition = "2021"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# tray-icon: system-tray support so closing the window hides to tray instead of quitting.
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-fs = "2"
+# Single-instance guard: a second launch focuses the running window instead of
+# starting a duplicate process. Must be the first plugin registered.
+tauri-plugin-single-instance = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-notification = "2"
 # WebDAV sync runs HTTP from the Rust side so it bypasses the WebView's CORS
 # enforcement (browser fetch fails WebDAV PROPFIND with "Failed to fetch").
 tauri-plugin-http = "2"
+# Launch-on-boot: registers an OS-native autostart entry (Windows Run key /
+# macOS LaunchAgent / Linux .desktop). Toggled from the "通用" settings page.
+tauri-plugin-autostart = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 zip = { version = "2", default-features = false, features = ["deflate"] }

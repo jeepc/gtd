@@ -12,6 +12,7 @@ import SyncSettingsPage from './pages/SyncSettingsPage.tsx';
 import McpServerPage from './pages/McpServerPage.tsx';
 import AboutPage from './pages/AboutPage.tsx';
 import AppearanceSettingsPage from './pages/AppearanceSettingsPage.tsx';
+import GeneralSettingsPage from './pages/GeneralSettingsPage.tsx';
 import ConflictsPage from './pages/ConflictsPage.tsx';
 import WelcomeScreen from './pages/WelcomeScreen.tsx';
 import './styles.css';
@@ -31,6 +32,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="settings/mcp" element={<McpServerPage />} />
           <Route path="settings/about" element={<AboutPage />} />
           <Route path="settings/appearance" element={<AppearanceSettingsPage />} />
+          <Route path="settings/general" element={<GeneralSettingsPage />} />
           <Route path="conflicts" element={<ConflictsPage />} />
           <Route path="welcome" element={<WelcomeScreen />} />
         </Route>
