@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QuickInput from '../components/QuickInput.tsx';
 import EntryList from '../components/EntryList.tsx';
-import AskAI from '../components/AskAI.tsx';
 import { LoopLockup } from '../components/Logo.tsx';
 import { useVaultStore } from '../state/vaultStore.ts';
 
@@ -71,7 +70,6 @@ export default function HomePage() {
         </div>
       )}
       <QuickInput />
-      <AskAI entries={entries} />
       <EntryList entries={entries} focusedId={focusedId} />
     </>
   );

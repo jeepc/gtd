@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import EntryList from '../components/EntryList';
-import AskAI from '../components/AskAI';
 import { useVaultStore } from '../state/vaultStore';
 import { useTheme, baseStyles } from '../theme';
 
@@ -20,8 +19,10 @@ export default function TagScreen() {
     return true;
   });
 
-  return (
-    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
+  // 表头收进 ListHeaderComponent，让 EntryList（虚拟列表）成为唯一滚动容器，
+  // 避免 VirtualizedList 嵌在 ScrollView 里破坏 windowing（RN 会报错）。
+  const header = (
+    <View>
       <Text style={[baseStyles.title, { color: theme.fg, marginTop: 16 }]}>#{tag}</Text>
       <Text style={{ color: theme.muted, marginBottom: 8 }}>{filtered.length} 条</Text>
       <View style={{ flexDirection: 'row', gap: 8, marginVertical: 8 }}>
@@ -31,8 +32,12 @@ export default function TagScreen() {
           </TouchableOpacity>
         ))}
       </View>
-      <AskAI entries={filtered} />
-      <EntryList entries={filtered} />
-    </ScrollView>
+    </View>
+  );
+
+  return (
+    <View style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
+      <EntryList entries={filtered} ListHeaderComponent={header} />
+    </View>
   );
 }

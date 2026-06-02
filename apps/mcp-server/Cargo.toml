@@ -1,11 +1,11 @@
 [package]
-name = "gtd-mcp-server"
+name = "loop-mcp-server"
 version = "0.1.0"
 edition = "2021"
-description = "MCP server exposing the GTD vault to AI clients."
+description = "MCP server exposing the Loop vault to AI clients."
 
 [[bin]]
-name = "gtd-mcp-server"
+name = "loop-mcp-server"
 path = "src/main.rs"
 
 [dependencies]

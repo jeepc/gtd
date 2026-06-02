@@ -114,13 +114,3 @@ export function userFields(meta: EntryMetadata): Record<string, ScalarValue> {
   }
   return out;
 }
-
-/** Metadata with `_`-prefixed system fields stripped, for AI context (§6.7.2 / §8.3). */
-export function aiVisibleMetadata(meta: EntryMetadata): EntryMetadata {
-  const out: EntryMetadata = { updated: meta.updated };
-  for (const [k, v] of orderedMetaEntries(meta)) {
-    if (k === 'updated' || isSystemKey(k)) continue;
-    out[k] = v;
-  }
-  return out;
-}

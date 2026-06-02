@@ -1,0 +1,38 @@
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import EntryList from '../components/EntryList.tsx';
+import { useVaultStore } from '../state/vaultStore.ts';
+
+type Filter = 'all' | 'todo' | 'done';
+
+/** Entries of a given priority (P1/P2/P3) — the priority analogue of TagPage. */
+export default function PriorityPage() {
+  const { level } = useParams();
+  const navigate = useNavigate();
+  const entries = useVaultStore(s => s.entries);
+  const [filter, setFilter] = useState<Filter>('all');
+
+  const p = Number(level);
+  const filtered = entries.filter(e => {
+    if (e.metadata.priority !== p) return false;
+    if (filter === 'todo') return e.status === 'todo';
+    if (filter === 'done') return e.status === 'done';
+    return true;
+  });
+
+  return (
+    <>
+      <span className="back-link" onClick={() => navigate(-1)}>← 返回</span>
+      <div className="title">
+        <span className={`priority-badge p${p}`}>{'!'.repeat(p)}</span> 优先级 P{p}
+        <span className="meta"> {filtered.length} 条</span>
+      </div>
+      <div className="row" style={{ marginTop: 12 }}>
+        <button onClick={() => setFilter('all')} disabled={filter === 'all'}>全部</button>
+        <button onClick={() => setFilter('todo')} disabled={filter === 'todo'}>仅未完成</button>
+        <button onClick={() => setFilter('done')} disabled={filter === 'done'}>仅已完成</button>
+      </div>
+      <EntryList entries={filtered} />
+    </>
+  );
+}

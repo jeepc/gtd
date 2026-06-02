@@ -1,36 +1,47 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Switch, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useVaultStore } from '../state/vaultStore';
-import { saveSecret, loadSecret } from '../platform/keychain';
-import { WebDAVClient } from '@gtd/core';
+import { useVaultStore, saveSecret, loadSecret, refFor } from '../state/vaultStore';
+import { WebDAVClient } from '@loop/core';
 import { useTheme, baseStyles } from '../theme';
 
 export default function SyncSettingsScreen() {
   const nav = useNavigation<any>();
   const theme = useTheme();
-  const config = useVaultStore(s => s.config);
-  const saveConfig = useVaultStore(s => s.saveConfig);
+  const appSettings = useVaultStore(s => s.appSettings);
+  const saveAppSettings = useVaultStore(s => s.saveAppSettings);
   const syncNow = useVaultStore(s => s.syncNow);
 
-  const dav = config.sync.webdav;
+  const dav = appSettings.sync.webdav;
   const [url, setUrl] = useState(dav?.url ?? '');
   const [user, setUser] = useState(dav?.username ?? '');
   const [pass, setPass] = useState('');
-  const [autoSync, setAutoSync] = useState(config.sync.autoSync);
+  const [autoSync, setAutoSync] = useState(appSettings.sync.autoSync);
+  const [intervalMin, setIntervalMin] = useState(String(appSettings.sync.intervalMinutes));
+  const [syncOnFocus, setSyncOnFocus] = useState(appSettings.sync.syncOnFocus);
+  const [syncOnBlur, setSyncOnBlur] = useState(appSettings.sync.syncOnBlur);
   const [test, setTest] = useState('');
 
   async function save() {
-    const ref = 'keychain://todo-app/webdav';
+    const ref = refFor('webdav');
     if (pass) await saveSecret(ref, pass);
-    await saveConfig({ ...config, sync: { webdav: { url, username: user, passwordRef: ref }, autoSync } });
+    await saveAppSettings({
+      ...appSettings,
+      sync: {
+        webdav: url ? { url, username: user, passwordRef: ref } : null,
+        autoSync,
+        intervalMinutes: Math.max(1, Number(intervalMin) || 5),
+        syncOnFocus,
+        syncOnBlur,
+      },
+    });
     nav.goBack();
   }
 
   async function testConn() {
     setTest('测试中…');
     try {
-      const password = pass || await loadSecret(dav?.passwordRef ?? '');
+      const password = pass || await loadSecret(dav?.passwordRef ?? refFor('webdav'));
       const c = new WebDAVClient({ url, username: user, password });
       setTest(await c.testConnection() ? '连接成功' : '连接失败');
     } catch (e) { setTest('失败：' + (e as Error).message); }
@@ -39,16 +50,25 @@ export default function SyncSettingsScreen() {
   return (
     <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>URL</Text>
-        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={url} onChangeText={setUrl} placeholderTextColor={theme.muted} />
+        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={url} onChangeText={setUrl} autoCapitalize="none" />
       </View>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>用户名</Text>
-        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={user} onChangeText={setUser} />
+        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={user} onChangeText={setUser} autoCapitalize="none" />
       </View>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>密码</Text>
         <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={pass} onChangeText={setPass} secureTextEntry placeholder={dav ? '（保留不变）' : ''} placeholderTextColor={theme.muted} />
       </View>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>自动同步</Text>
         <Switch value={autoSync} onValueChange={setAutoSync} />
+      </View>
+      <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>周期 (分钟)</Text>
+        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={intervalMin} onChangeText={setIntervalMin} keyboardType="number-pad" />
+      </View>
+      <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>切回前台时同步</Text>
+        <Switch value={syncOnFocus} onValueChange={setSyncOnFocus} />
+      </View>
+      <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>切到后台时同步</Text>
+        <Switch value={syncOnBlur} onValueChange={setSyncOnBlur} />
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginVertical: 12 }}>
         <TouchableOpacity style={[baseStyles.button, { borderColor: theme.border }]} onPress={testConn}><Text style={{ color: theme.fg }}>测试连接</Text></TouchableOpacity>

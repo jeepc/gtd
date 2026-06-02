@@ -1,5 +1,5 @@
 {
-  "name": "gtd-monorepo",
+  "name": "loop-monorepo",
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@9.0.0",
@@ -7,8 +7,8 @@
     "build": "pnpm -r --filter=./packages/* build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "dev:desktop": "pnpm --filter @gtd/desktop dev",
-    "dev:mobile": "pnpm --filter @gtd/mobile start",
+    "dev:desktop": "pnpm --filter @loop/desktop dev",
+    "dev:mobile": "pnpm --filter @loop/mobile start",
     "mcp": "cargo run --manifest-path apps/mcp-server/Cargo.toml"
   },
   "devDependencies": {

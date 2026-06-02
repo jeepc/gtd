@@ -1,4 +1,4 @@
-import type { FileSystem } from '@gtd/core';
+import type { FileSystem } from '@loop/core';
 import {
   readTextFile, writeTextFile, exists, mkdir, remove, readDir, BaseDirectory,
 } from '@tauri-apps/plugin-fs';
@@ -62,7 +62,7 @@ async function walk(root: string, current: string, out: string[]): Promise<void>
 
 // Used in dev / for testing the UI without Tauri. Keeps state in localStorage.
 export class LocalStorageFileSystem implements FileSystem {
-  private prefix = 'gtd:fs:';
+  private prefix = 'loop:fs:';
   async readText(path: string): Promise<string> {
     const v = localStorage.getItem(this.prefix + path);
     if (v === null) throw new Error(`ENOENT: ${path}`);

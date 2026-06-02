@@ -1,0 +1,177 @@
+name: Release
+
+# 推送 vX.Y.Z 形式的 tag 时触发：
+#   - Android：用仓库 Secret 还原 keystore，构建已签名 APK
+#   - 桌面端：macOS / Windows / Linux 三平台未签名安装包（首次运行需手动放行，详见 docs/RELEASING.md）
+# 所有产物上传到同一个 GitHub Release（先建草稿，全部成功后取消草稿正式发布）。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  PNPM_VERSION: '9'
+  NODE_VERSION: '20'
+
+jobs:
+  # 1) 先创建草稿 Release，供后续各平台作为上传目标，避免并行 job 重复创建竞态
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create.outputs.id }}
+    steps:
+      - name: Create draft release
+        id: create
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Loop ${{ github.ref_name }}
+          draft: true
+          body: |
+            Loop ${{ github.ref_name }}
+
+            桌面端安装包未签名，首次运行需手动放行（Windows SmartScreen / macOS Gatekeeper / Linux 赋可执行权限），
+            方法见 docs/RELEASING.md。Android APK 需在系统中允许“未知来源”安装。
+
+  # 2) Android：已签名 APK
+  android:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared core
+        run: pnpm --filter @loop/core build
+
+      # RN 新架构 + Hermes 需要 NDK / CMake，安装与 build.gradle 中固定的版本一致
+      - name: Install Android NDK & CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.1.12297006" "cmake;3.22.1"
+
+      - name: Restore signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > apps/mobile/android/app/release.keystore
+          printf 'storeFile=release.keystore\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" \
+            > apps/mobile/android/keystore.properties
+
+      - name: Build signed release APK
+        working-directory: apps/mobile/android
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          ./gradlew assembleRelease \
+            -PloopVersionName="$VERSION_NAME" \
+            -PloopVersionCode="${GITHUB_RUN_NUMBER}"
+
+      - name: Rename APK
+        run: |
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk \
+             "Loop-${GITHUB_REF_NAME}-android.apk"
+
+      - name: Upload APK to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: Loop-${{ github.ref_name }}-android.apk
+
+      - name: Clean up secrets
+        if: always()
+        run: rm -f apps/mobile/android/app/release.keystore apps/mobile/android/keystore.properties
+
+  # 3) 桌面端：三平台未签名安装包
+  desktop:
+    needs: create-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+          - platform: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            build-essential \
+            libssl-dev
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared core
+        run: pnpm --filter @loop/core build
+
+      # tauri-action 会执行 beforeBuildCommand(pnpm build) 并把产物上传到指定 release
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          releaseId: ${{ needs.create-release.outputs.release_id }}
+          args: --target ${{ matrix.target }}
+
+  # 4) 全部成功后取消草稿，正式发布
+  publish:
+    needs: [create-release, android, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: false

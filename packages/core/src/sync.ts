@@ -22,10 +22,14 @@ export interface SyncOptions {
 }
 
 const MD_FILE_RE = /(\d{4})\/(\d{2})\/\1-\2-\d{2}\.md$/;
-const CONFIG_FILE = 'config.json';
 
+// `config.json` (app settings) is intentionally NOT synced: it lives only at the
+// vault root, and some WebDAV servers (notably 坚果云/Nutstore) forbid creating
+// loose files directly under the dav root — only folders and files within them.
+// A root-level config.json PUT therefore 404s. Day files (`YYYY/MM/…md`) are
+// unaffected since they carry their own parent folders. Settings stay local.
 function isVaultPath(p: string): boolean {
-  return p === CONFIG_FILE || MD_FILE_RE.test(p);
+  return MD_FILE_RE.test(p);
 }
 
 /**
@@ -76,20 +80,6 @@ export async function sync(opts: SyncOptions): Promise<SyncSummary> {
       ]);
       if (localText === remoteText) continue;
 
-      if (path === CONFIG_FILE) {
-        // last-write-wins on raw content for config
-        const localUp = extractUpdatedAt(localText);
-        const remoteUp = extractUpdatedAt(remoteText);
-        if (remoteUp > localUp) {
-          await local.writeText(path, remoteText);
-          summary.pulled.push(path);
-        } else {
-          await remote.put(path, localText);
-          summary.pushed.push(path);
-        }
-        continue;
-      }
-
       const merged = mergeDayFiles(
         parseDayFile(localText, path),
         parseDayFile(remoteText, path),
@@ -111,15 +101,6 @@ export async function sync(opts: SyncOptions): Promise<SyncSummary> {
 
   summary.finishedAt = new Date().toISOString();
   return summary;
-}
-
-function extractUpdatedAt(text: string): string {
-  try {
-    const obj = JSON.parse(text);
-    if (typeof obj?.updatedAt === 'string') return obj.updatedAt;
-  } catch { /* ignore */ }
-  const m = text.match(/^updatedAt:\s*(.+)$/m);
-  return m?.[1] ?? '';
 }
 
 function ts(): string {

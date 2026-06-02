@@ -1,4 +1,4 @@
-import type { FileSystem } from '@gtd/core';
+import type { FileSystem } from '@loop/core';
 import RNFS from 'react-native-fs';
 
 const ROOT = RNFS.DocumentDirectoryPath + '/vault';

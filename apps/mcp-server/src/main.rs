@@ -1,4 +1,4 @@
-// Minimal MCP server (stdio transport) exposing the GTD vault.
+// Minimal MCP server (stdio transport) exposing the Loop vault.
 // Spec: https://modelcontextprotocol.io
 //
 // Implements just enough of the JSON-RPC handshake + tools to satisfy
@@ -13,11 +13,11 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let vault_root = std::env::var("GTD_VAULT_ROOT").unwrap_or_else(|_| {
+    let vault_root = std::env::var("LOOP_VAULT_ROOT").unwrap_or_else(|_| {
         directories::UserDirs::new()
             .and_then(|d| d.home_dir().to_str().map(String::from))
-            .map(|home| format!("{home}/GTD-Vault"))
-            .unwrap_or_else(|| "./GTD-Vault".to_string())
+            .map(|home| format!("{home}/Loop-Vault"))
+            .unwrap_or_else(|| "./Loop-Vault".to_string())
     });
     let vault = vault::Vault::new(vault_root.into());
 
@@ -57,7 +57,7 @@ async fn handle_request(vault: &vault::Vault, req: &Value) -> Result<Option<Valu
     let result: Result<Value> = match method {
         "initialize" => Ok(json!({
             "protocolVersion": "2024-11-05",
-            "serverInfo": { "name": "gtd-mcp-server", "version": "0.1.0" },
+            "serverInfo": { "name": "loop-mcp-server", "version": "0.1.0" },
             "capabilities": { "tools": {} }
         })),
         "tools/list" => Ok(json!({ "tools": tools::list_tools() })),

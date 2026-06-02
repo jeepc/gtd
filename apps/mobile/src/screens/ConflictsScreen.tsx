@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useVaultStore } from '../state/vaultStore';
-import type { Entry } from '@gtd/core';
+import type { Entry } from '@loop/core';
 import { useTheme, baseStyles } from '../theme';
 
 interface Pair { local: Entry; remote: Entry | null }

@@ -1,0 +1,9 @@
+// 注：本仓库 pnpm 使用 node-linker=hoisted，依赖被提升到 monorepo 根 node_modules，
+// 不在 apps/mobile/node_modules 下。Gradle 用字面量相对路径定位依赖，不会向上查找，
+// 因此这里指向根 node_modules（../../../node_modules）。
+pluginManagement { includeBuild("../../../node_modules/@react-native/gradle-plugin") }
+plugins { id("com.facebook.react.settings") }
+extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
+rootProject.name = 'Loop'
+include ':app'
+includeBuild('../../../node_modules/@react-native/gradle-plugin')

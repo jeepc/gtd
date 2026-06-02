@@ -14,7 +14,7 @@ pub fn list_tools() -> Value {
     json!([
         {
             "name": "list_entries",
-            "description": "List entries from the GTD vault, optionally filtered by date / tag / status.",
+            "description": "List entries from the Loop vault, optionally filtered by date / tag / status.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

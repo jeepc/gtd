@@ -98,14 +98,19 @@ describe('Vault', () => {
     expect(recent.map(e => e.content)).toEqual(['new']);
   });
 
-  it('createEntry parses inline #key:value fields into metadata', async () => {
+  it('createEntry stores content as-is, no `#key:value` field magic (PRD v1.2 §4.1.1)', async () => {
     const fs = new MemoryFileSystem();
     const v = new Vault(fs);
-    const e = await v.createEntry({ content: '买牛奶 #生活 #due:0525 #!!', date: '2026-05-18' });
-    expect(e.tags).toEqual(['生活']);
-    expect(e.content).toBe('买牛奶 #生活');
-    expect(typeof e.metadata.due).toBe('string');
-    expect(e.metadata.priority).toBe(2);
+    const e = await v.createEntry({ content: '买牛奶 #生活 #due:0525', date: '2026-05-18' });
+    // The rejected design (database-design v1.1 §4.3) is the SPECIAL handling
+    // of `#key:value` as a metadata field. The token is no longer stripped or
+    // coerced into `metadata.due`; content and the literal tag are preserved.
+    expect(e.content).toBe('买牛奶 #生活 #due:0525');
+    expect(e.metadata.due).toBeUndefined();
+    expect(e.metadata.priority).toBeUndefined();
+    // `#生活` is a normal tag; `#due:0525` matches the §6.2 tag BNF literally
+    // so it's stored as a tag named `due:0525` — not as a field.
+    expect(e.tags).toContain('生活');
   });
 
   it('setProperty sets, then deletes with null, bumping updated', async () => {
@@ -129,12 +134,29 @@ describe('Vault', () => {
     await expect(v.setProperty(e.id, 'done', 'x')).rejects.toThrow();
   });
 
-  it('config round trip', async () => {
+  it('vault config round trip (PRD §6.5)', async () => {
     const fs = new MemoryFileSystem();
     const v = new Vault(fs);
-    const cfg = await v.loadConfig();
+    const cfg = await v.loadVaultConfig();
     cfg.ui.theme = 'dark';
-    await v.saveConfig(cfg);
-    expect((await v.loadConfig()).ui.theme).toBe('dark');
+    await v.saveVaultConfig(cfg);
+    expect((await v.loadVaultConfig()).ui.theme).toBe('dark');
+  });
+
+  it('loadVaultConfig drops legacy machine-specific fields (v1.1 → v1.2 migration)', async () => {
+    const fs = new MemoryFileSystem();
+    // Pretend an old PRD v1.1 vault config that mixed sync/ai credentials in.
+    await fs.writeText('config.json', JSON.stringify({
+      version: 1,
+      ui: { theme: 'dark', language: 'zh-CN' },
+      sync: { webdav: { url: 'https://x', username: 'u', passwordRef: 'p' }, autoSync: true },
+      ai: { enabled: true, provider: 'anthropic', apiKeyRef: 'k', promptTemplates: [] },
+    }));
+    const v = new Vault(fs);
+    const cfg = await v.loadVaultConfig();
+    // ui carries over; legacy machine-only and removed AI fields are dropped.
+    expect(cfg.ui.theme).toBe('dark');
+    expect((cfg as any).sync).toBeUndefined();
+    expect((cfg as any).ai).toBeUndefined();
   });
 });

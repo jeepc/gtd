@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useVaultStore } from '../state/vaultStore.ts';
-import type { Entry } from '@gtd/core';
+import type { Entry } from '@loop/core';
 
 interface Pair {
   local: Entry;

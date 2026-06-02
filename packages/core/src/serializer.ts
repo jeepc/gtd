@@ -1,6 +1,6 @@
 import type { Entry, DayFile, EntryMetadata, ScalarValue } from './types.js';
 import { DATA_FORMAT_VERSION } from './types.js';
-import { orderedMetaEntries, aiVisibleMetadata } from './metadata.js';
+import { orderedMetaEntries } from './metadata.js';
 
 function prefixFor(status: Entry['status']): string {
   switch (status) {
@@ -30,14 +30,6 @@ export function serializeEntry(entry: Entry): string {
   const prefix = prefixFor(entry.status);
   const content = escapeContent(entry.content);
   return `${prefix} ${content} ^${entry.id}${serializeMetadata(entry.metadata)}`;
-}
-
-/**
- * Serialize an entry for AI context with `_`-prefixed system fields stripped
- * (PRD §6.7.2 / §8.3). The single chokepoint for everything sent to an LLM.
- */
-export function serializeEntryForAI(entry: Entry): string {
-  return serializeEntry({ ...entry, metadata: aiVisibleMetadata(entry.metadata) });
 }
 
 export function serializeDayFile(file: DayFile): string {

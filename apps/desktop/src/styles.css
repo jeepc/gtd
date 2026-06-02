@@ -1,6 +1,6 @@
 :root {
   color-scheme: light dark;
-  /* Loop brand palette — see /brand/brand-design.md */
+  /* Loop brand palette — see /docs/PRD.md §7.5 */
   --bg: #FAFAF7;        /* warm white */
   --fg: #1A1A1A;        /* near black */
   --muted: #6b7280;
@@ -8,10 +8,29 @@
   --accent: #FF5C39;    /* coral orange — the next-action dot */
   --tag-bg: #fff1ec;
   --tag-fg: #b3401d;
+  --toolbar-btn-bg: #eef2ff;  /* indigo tint — kept in sync with mobile theme tagBg */
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans CJK SC', 'PingFang SC', sans-serif;
 }
+/* Dark palette. Applied when the resolved theme is dark — either because the
+   user picked 「深色模式」 (data-theme="dark") or picked 「跟随系统」 and the OS is
+   dark. The media query is only a pre-JS fallback for `auto`; once App.tsx runs
+   it always writes the resolved data-theme, so an explicit choice wins. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b0b0c;
+  --fg: #FAFAF7;
+  --muted: #9ca3af;
+  --border: #27272a;
+  --accent: #FF5C39;
+  --tag-bg: #2a1812;
+  --tag-fg: #ff8a6a;
+  --toolbar-btn-bg: #1e293b;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
     --bg: #0b0b0c;
     --fg: #FAFAF7;
     --muted: #9ca3af;
@@ -19,6 +38,7 @@
     --accent: #FF5C39;
     --tag-bg: #2a1812;
     --tag-fg: #ff8a6a;
+    --toolbar-btn-bg: #1e293b;
   }
 }
 
@@ -37,6 +57,11 @@ button, input, textarea, select {
   padding: 6px 10px;
 }
 button:hover { background: var(--border); cursor: pointer; }
+/* Native <select> popups inherit color:inherit (light text in dark mode) but
+   render on an OS-painted background — give options an explicit pair so they
+   never end up light-on-light. */
+select { background: var(--bg); }
+option { background: var(--bg); color: var(--fg); }
 input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
 
 .top-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
@@ -45,6 +70,18 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 
 .quick-input-wrap { position: relative; }
 .quick-input { width: 100%; padding: 10px 12px; font-size: 14px; }
+.input-toolbar { display: flex; gap: 4px; margin-bottom: 6px; }
+.input-toolbar-btn {
+  width: 28px; height: 28px; padding: 0; font-size: 15px; line-height: 1;
+  color: var(--muted); background: var(--toolbar-btn-bg); border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer;
+}
+.input-toolbar-btn:hover { color: var(--accent); }
+.capture-preview { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 12px; }
+.capture-preview-label { color: var(--muted); }
+.capture-preview-raw { color: var(--muted); font-style: italic; }
+.capture-preview .due-badge { margin-left: 0; }
+.capture-preview .priority-badge { margin-right: 0; }
 .cmd-menu {
   position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
   margin: 0; padding: 4px; list-style: none;
@@ -59,12 +96,19 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .entry-list { list-style: none; padding: 0; margin: 16px 0; }
 .entry { display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
 .entry.focused { background: var(--tag-bg); border-radius: 4px; padding-left: 8px; padding-right: 8px; }
-.entry input[type=checkbox] { margin-top: 4px; cursor: pointer; }
+.entry .entry-check { margin-top: 2px; padding: 0; background: none; border: none; cursor: pointer; font-size: 16px; line-height: 1; color: var(--fg); }
 .entry .content { flex: 1; cursor: pointer; }
 .entry.done .content { color: var(--muted); text-decoration: line-through; }
 .entry .meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
 
 .tag { display: inline-block; background: var(--tag-bg); color: var(--tag-fg); padding: 1px 6px; border-radius: 4px; font-size: 12px; margin: 0 2px; cursor: pointer; }
+.due-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--muted); border: 1px solid var(--border); text-decoration: none; }
+.due-badge.overdue { color: #92400e; background: #fef3c7; border-color: #f59e0b; }
+.priority-badge { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: -1px; vertical-align: middle; }
+.priority-badge.p1 { color: #b91c1c; background: #fee2e2; }
+.priority-badge.p2 { color: #c2410c; background: #ffedd5; }
+.priority-badge.p3 { color: #a16207; background: #fef9c3; }
+.priority-badge.clickable { cursor: pointer; }
 
 .day-header { font-size: 12px; color: var(--muted); margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
 
@@ -81,5 +125,3 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .link { color: var(--accent); cursor: pointer; }
 .list-link { display: block; padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
 .list-link:hover { color: var(--accent); }
-
-.ai-panel { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 16px; white-space: pre-wrap; min-height: 80px; }

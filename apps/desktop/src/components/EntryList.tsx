@@ -1,4 +1,4 @@
-import type { Entry } from '@gtd/core';
+import type { Entry } from '@loop/core';
 import { useVaultStore } from '../state/vaultStore.ts';
 import EntryRow from './EntryRow.tsx';
 

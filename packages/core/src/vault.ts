@@ -1,15 +1,13 @@
 import type { FileSystem } from './fs.js';
-import type { Entry, DayFile, AppConfig, EntryStatus, EntryMetadata, ScalarValue } from './types.js';
-import { DATA_FORMAT_VERSION, defaultConfig } from './types.js';
+import type { Entry, DayFile, VaultConfig, EntryStatus, EntryMetadata, ScalarValue } from './types.js';
+import { DATA_FORMAT_VERSION, defaultVaultConfig } from './types.js';
 import { parseDayFile } from './parser.js';
 import { serializeDayFile } from './serializer.js';
 import { ulid } from './ulid.js';
-import { parseInlineFields } from './fields.js';
+import { extractTags } from './tags.js';
 import {
   assertValidProperty,
   isBaseKey,
-  isScalar,
-  isValidMetaKey,
   metadataByteLength,
   MAX_META_BYTES,
   MetadataValidationError,
@@ -68,24 +66,44 @@ export class Vault {
     this.dayCache.delete(date);
   }
 
-  // --- Config ---
+  // --- Vault config (PRD §6.5: cross-device prefs, synced with vault) ---
 
-  async loadConfig(): Promise<AppConfig> {
+  /**
+   * Load `<vault>/config.json`. Old vaults may carry machine-specific or
+   * removed fields (`sync.webdav`, `ai.*`, etc.) — those are silently dropped
+   * here so they migrate out on the next save. Credentials referenced via
+   * `passwordRef` belong in {@link AppSettings}, not in the vault file.
+   */
+  async loadVaultConfig(): Promise<VaultConfig> {
+    const def = defaultVaultConfig();
     if (!(await this.fs.exists(CONFIG_PATH))) {
-      const cfg = defaultConfig();
-      await this.saveConfig(cfg);
-      return cfg;
+      await this.saveVaultConfig(def);
+      return def;
     }
-    const text = await this.fs.readText(CONFIG_PATH);
     try {
-      return { ...defaultConfig(), ...JSON.parse(text) };
+      const raw = JSON.parse(await this.fs.readText(CONFIG_PATH)) as Partial<VaultConfig>;
+      return {
+        version: 1,
+        ui: { ...def.ui, ...(raw.ui ?? {}) },
+        tagColors: raw.tagColors ?? def.tagColors,
+      };
     } catch {
-      return defaultConfig();
+      return def;
     }
   }
 
-  async saveConfig(cfg: AppConfig): Promise<void> {
+  async saveVaultConfig(cfg: VaultConfig): Promise<void> {
     await this.fs.writeText(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+  }
+
+  /** @deprecated Use {@link loadVaultConfig}. */
+  loadConfig(): Promise<VaultConfig> {
+    return this.loadVaultConfig();
+  }
+
+  /** @deprecated Use {@link saveVaultConfig}. */
+  saveConfig(cfg: VaultConfig): Promise<void> {
+    return this.saveVaultConfig(cfg);
   }
 
   // --- Day file IO ---
@@ -117,26 +135,33 @@ export class Vault {
     content: string;
     status?: EntryStatus;
     date?: string;
+    /** Open metadata fields captured at creation (e.g. `due`, `priority`). Validated. */
+    metadata?: Record<string, ScalarValue>;
   }): Promise<Entry> {
     const status: EntryStatus = input.status ?? 'todo';
     const date = input.date ?? todayDateString();
     const now = nowIso();
 
-    // Parse inline `#key:value` / `#!!` fields so capture works identically
-    // across desktop, mobile, and MCP (all funnel through here).
-    const parsed = parseInlineFields(input.content);
+    // Base fields are managed; open user fields (`due`, `priority`, … from the
+    // Level 2 capture syntax — database-design v1.1 §4.3) merge on top after
+    // passing the same write-gate validation as setProperty.
     const metadata: EntryMetadata = { updated: now };
     if (status === 'done') metadata.done = now;
     if (status === 'log') metadata.log = now;
-    for (const [k, val] of Object.entries(parsed.fields)) {
-      if (isValidMetaKey(k) && isScalar(val)) metadata[k] = val;
+    for (const [k, v] of Object.entries(input.metadata ?? {})) {
+      if (isBaseKey(k) || k === 'updated') continue; // managed internally
+      assertValidProperty(k, v);
+      metadata[k] = v;
+    }
+    if (metadataByteLength(metadata) > MAX_META_BYTES) {
+      throw new MetadataValidationError(`metadata exceeds ${MAX_META_BYTES}-byte limit (§6.7.4)`);
     }
 
     const entry: Entry = {
       id: ulid(),
-      content: parsed.content,
+      content: input.content,
       status,
-      tags: parsed.tags,
+      tags: extractTags(input.content),
       date,
       metadata,
     };
@@ -170,15 +195,9 @@ export class Vault {
     let nextStatus = entry.status;
     const nextMeta: EntryMetadata = { ...entry.metadata };
 
-    // A content edit re-runs the inline-field pipeline so `#due:`/`#!!` typed
-    // during an edit stay consistent (and aren't mis-captured as tags).
     if (patch.content !== undefined) {
-      const parsed = parseInlineFields(patch.content);
-      nextContent = parsed.content;
-      nextTags = parsed.tags;
-      for (const [k, val] of Object.entries(parsed.fields)) {
-        if (isValidMetaKey(k) && isScalar(val)) nextMeta[k] = val;
-      }
+      nextContent = patch.content;
+      nextTags = extractTags(patch.content);
     }
 
     if (patch.status !== undefined && patch.status !== nextStatus) {

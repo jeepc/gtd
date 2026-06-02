@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { type Entry, describeDue } from '@gtd/core';
+import { describeDue, type Entry } from '@loop/core';
 
 interface Props {
   entry: Entry;
@@ -12,6 +12,13 @@ export default function EntryRow({ entry, onToggle, onDelete, focused }: Props) 
   const navigate = useNavigate();
   const isDone = entry.status === 'done';
   const isLog = entry.status === 'log';
+  const due = typeof entry.metadata.due === 'string' && entry.status === 'todo'
+    ? describeDue(entry.metadata.due)
+    : null;
+  const priority = entry.status === 'todo' && typeof entry.metadata.priority === 'number'
+    && entry.metadata.priority >= 1 && entry.metadata.priority <= 3
+    ? entry.metadata.priority
+    : null;
 
   return (
     <li
@@ -23,35 +30,32 @@ export default function EntryRow({ entry, onToggle, onDelete, focused }: Props) 
       }}
     >
       {!isLog && (
-        <input
-          type="checkbox"
-          checked={isDone}
-          onChange={ev => onToggle(entry.id, ev.target.checked)}
-        />
+        <button
+          type="button"
+          className="entry-check"
+          role="checkbox"
+          aria-checked={isDone}
+          onClick={() => onToggle(entry.id, !isDone)}
+        >
+          {isDone ? '☑' : '☐'}
+        </button>
       )}
       {isLog && <span style={{ width: 16 }}>•</span>}
       <span className="content" onClick={() => navigate(`/entry/${entry.id}`)}>
+        {priority && (
+          <span
+            className={`priority-badge p${priority} clickable`}
+            title={`优先级 P${priority}（点击筛选）`}
+            onClick={e => { e.stopPropagation(); navigate(`/priority/${priority}`); }}
+          >
+            {'!'.repeat(priority)}
+          </span>
+        )}
         {renderContent(entry.content, navigate)}
+        {due && <span className={`due-badge ${due.overdue ? 'overdue' : ''}`}>{due.label}</span>}
       </span>
-      {dueBadge(entry)}
       <span className="meta">{formatTime(entry)}</span>
     </li>
-  );
-}
-
-function dueBadge(entry: Entry) {
-  if (entry.status === 'done') return null;
-  const due = entry.metadata.due;
-  if (typeof due !== 'string') return null;
-  const d = describeDue(due);
-  if (!d) return null;
-  return (
-    <span
-      className="due-badge"
-      style={{ fontSize: 12, marginLeft: 8, color: d.overdue ? '#dc2626' : 'inherit', opacity: d.overdue ? 1 : 0.7 }}
-    >
-      ⏰ {d.label}
-    </span>
   );
 }
 

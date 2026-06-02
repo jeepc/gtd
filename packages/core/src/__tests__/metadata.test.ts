@@ -8,10 +8,9 @@ import {
   stableStringify,
   metadataByteLength,
   userFields,
-  aiVisibleMetadata,
   MetadataValidationError,
 } from '../metadata.js';
-import { serializeEntry, serializeEntryForAI } from '../serializer.js';
+import { serializeEntry } from '../serializer.js';
 import { parseEntryLine } from '../parser.js';
 import type { Entry, EntryMetadata } from '../types.js';
 
@@ -68,10 +67,9 @@ describe('open metadata model (§6.7)', () => {
     expect(metadataByteLength({ updated: 'U' })).toBe('{"updated":"U"}'.length);
   });
 
-  it('userFields excludes base + system keys; aiVisibleMetadata strips system', () => {
+  it('userFields excludes base + system keys', () => {
     const meta: EntryMetadata = { updated: 'U', due: 'D', priority: 2, _conflict: true };
     expect(userFields(meta)).toEqual({ due: 'D', priority: 2 });
-    expect(aiVisibleMetadata(meta)).toEqual({ updated: 'U', due: 'D', priority: 2 });
   });
 
   it('arbitrary + system keys round-trip through serialize/parse', () => {
@@ -95,15 +93,5 @@ describe('open metadata model (§6.7)', () => {
     expect(serializeEntry(e)).toContain(
       '<!-- {"updated":"U","deleted":"D","due":"2026-05-25","priority":2} -->',
     );
-  });
-
-  it('serializeEntryForAI strips `_`-prefixed fields', () => {
-    const e: Entry = {
-      id: ID, content: 'x', status: 'todo', tags: [], date: '2026-05-18',
-      metadata: { updated: 'U', due: '2026-05-25', _ai_category: '工作' },
-    };
-    const line = serializeEntryForAI(e);
-    expect(line).toContain('"due"');
-    expect(line).not.toContain('_ai_category');
   });
 });

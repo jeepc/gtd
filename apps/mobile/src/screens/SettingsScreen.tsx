@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { ScrollView, Text, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme, baseStyles } from '../theme';
 
@@ -7,8 +7,7 @@ export default function SettingsScreen() {
   const theme = useTheme();
   const items: [string, string][] = [
     ['SyncSettings', '同步配置'],
-    ['AISettings', 'AI 配置'],
-    ['PromptTemplates', 'Prompt 模板'],
+    ['Appearance', '外观'],
     ['About', '关于'],
   ];
   return (

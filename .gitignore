@@ -17,3 +17,8 @@ android/.gradle/
 .env.local
 coverage/
 /.claude/settings.local.json
+
+# Android 发布签名 — 绝不入库（debug.keystore 仍保留入库供开发使用）
+keystore.properties
+*.jks
+apps/mobile/android/app/release.keystore

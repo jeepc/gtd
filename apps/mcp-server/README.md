@@ -1,6 +1,6 @@
-# gtd-mcp-server
+# loop-mcp-server
 
-Standalone MCP server (stdio transport) that exposes the GTD vault to AI clients like Claude Desktop. Built per PRD §4.6.2.
+Standalone MCP server (stdio transport) that exposes the Loop vault to AI clients like Claude Desktop. Built per PRD §4.6.2.
 
 ## Build
 
@@ -8,7 +8,7 @@ Standalone MCP server (stdio transport) that exposes the GTD vault to AI clients
 cargo build --release --manifest-path apps/mcp-server/Cargo.toml
 ```
 
-The binary lands at `apps/mcp-server/target/release/gtd-mcp-server`.
+The binary lands at `apps/mcp-server/target/release/loop-mcp-server`.
 
 ## Configure Claude Desktop
 
@@ -17,15 +17,15 @@ In `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "gtd": {
-      "command": "/path/to/gtd-mcp-server",
-      "env": { "GTD_VAULT_ROOT": "/Users/you/GTD-Vault" }
+    "loop": {
+      "command": "/path/to/loop-mcp-server",
+      "env": { "LOOP_VAULT_ROOT": "/Users/you/Loop-Vault" }
     }
   }
 }
 ```
 
-`GTD_VAULT_ROOT` defaults to `~/GTD-Vault`.
+`LOOP_VAULT_ROOT` defaults to `~/Loop-Vault`.
 
 ## Tools
 

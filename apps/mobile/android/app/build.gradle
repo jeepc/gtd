@@ -1,0 +1,147 @@
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+/**
+ * This is the configuration block to customize your React Native Android app.
+ * By default you don't need to apply any configuration, just uncomment the lines you need.
+ */
+react {
+    /* Autolinking */
+    autolinkLibrariesWithApp()
+
+    /* Folders */
+    //   The root of your project, i.e. where "package.json" lives (apps/mobile).
+    root = rootProject.file("../")
+    //   本仓库 pnpm node-linker=hoisted：react-native / @react-native/* 被提升到 monorepo 根
+    //   node_modules，apps/mobile/node_modules 下没有。这些字面量相对路径以 rootProject
+    //   (apps/mobile/android) 为基准，../../../node_modules 即仓库根 node_modules。
+    reactNativeDir = rootProject.file("../../../node_modules/react-native")
+    codegenDir = rootProject.file("../../../node_modules/@react-native/codegen")
+    cliFile = rootProject.file("../../../node_modules/react-native/cli.js")
+
+    /* Variants */
+    //   The list of variants to that are debuggable. For those we're going to
+    //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.
+    //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
+    // debuggableVariants = ["liteDebug", "prodDebug"]
+
+    /* Bundling */
+    //   A list containing the node command and its flags. Default is just 'node'.
+    // nodeExecutableAndArgs = ["node"]
+    //
+    //   The command to run when bundling. By default is 'bundle'
+    // bundleCommand = "ram-bundle"
+    //
+    //   The path to the CLI configuration file. Default is empty.
+    // bundleConfig = file(../rn-cli.config.js)
+    //
+    //   The name of the generated asset file containing your JS bundle
+    // bundleAssetName = "MyApplication.android.bundle"
+    //
+    //   The entry file for bundle generation. Default is 'index.android.js' or 'index.js'
+    // entryFile = file("../js/MyApplication.android.js")
+    //
+    //   A list of extra flags to pass to the 'bundle' commands.
+    //   See https://github.com/react-native-community/cli/blob/main/docs/commands.md#bundle
+    // extraPackagerArgs = []
+
+    /* Hermes Commands */
+    //   The hermes compiler command to run. By default it is 'hermesc'
+    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
+    //
+    //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
+    // hermesFlags = ["-O", "-output-source-map"]
+}
+
+/**
+ * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
+ */
+def enableProguardInReleaseBuilds = false
+
+/**
+ * The preferred build flavor of JavaScriptCore (JSC)
+ *
+ * For example, to use the international variant, you can use:
+ * `def jscFlavor = 'org.webkit:android-jsc-intl:+'`
+ *
+ * The international variant includes ICU i18n library and necessary data
+ * allowing to use e.g. `Date.toLocaleString` and `String.localeCompare` that
+ * give correct results when using with locales other than en-US. Note that
+ * this variant is about 6MiB larger per architecture than default.
+ */
+def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+
+// 加载发布签名配置（仓库不入库）。放置 keystore.properties + release.keystore 后启用 release 签名；
+// 文件缺失时（如贡献者本地、无密钥构建）自动回退到 debug 签名，仍可成功构建。
+def releaseKeystoreProps = new Properties()
+def releaseKeystoreFile = rootProject.file("keystore.properties")
+if (releaseKeystoreFile.exists()) {
+    releaseKeystoreProps.load(new FileInputStream(releaseKeystoreFile))
+}
+
+android {
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    externalNativeBuild {
+        cmake {
+            // Windows 有 260 字符路径上限，深层 monorepo node_modules 下的 CMake 构建路径
+            // 容易超限，故在 Windows 上用一个短的暂存目录。其它系统（含 CI 的 Linux runner）
+            // 保持默认在模块 build 目录内，避免硬编码 Windows 路径导致构建失败。
+            if (System.getProperty("os.name").toLowerCase().contains("windows")) {
+                buildStagingDirectory file("C:/tmp/loop-mobile-cxx")
+            }
+        }
+    }
+
+    namespace "com.loop"
+    defaultConfig {
+        applicationId "io.github.jeepc.loop"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        // CI 可用 -PloopVersionCode / -PloopVersionName 按 git tag 注入；本地默认下列值。
+        versionCode (project.hasProperty('loopVersionCode') ? loopVersionCode.toInteger() : 1)
+        versionName (project.hasProperty('loopVersionName') ? loopVersionName : "1.0")
+    }
+    signingConfigs {
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+        release {
+            // 仅当 keystore.properties 存在时填充；缺失时此配置为空，release 构建会回退到 debug。
+            if (releaseKeystoreProps.containsKey('storeFile')) {
+                storeFile file(releaseKeystoreProps['storeFile'])
+                storePassword releaseKeystoreProps['storePassword']
+                keyAlias releaseKeystoreProps['keyAlias']
+                keyPassword releaseKeystoreProps['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            // 配置了发布密钥则用 release 签名；否则回退 debug，保证无密钥也能构建（仅供开发侧载）。
+            signingConfig releaseKeystoreProps.containsKey('storeFile') ? signingConfigs.release : signingConfigs.debug
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+dependencies {
+    // The version of react-native is set by the React Native Gradle Plugin
+    implementation("com.facebook.react:react-android")
+
+    if (hermesEnabled.toBoolean()) {
+        implementation("com.facebook.react:hermes-android")
+    } else {
+        implementation jscFlavor
+    }
+}

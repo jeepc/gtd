@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { View, TextInput, Text, ScrollView } from 'react-native';
+import { View, TextInput, Text } from 'react-native';
 import EntryList from '../components/EntryList';
-import AskAI from '../components/AskAI';
 import { useVaultStore } from '../state/vaultStore';
 import { useTheme, baseStyles } from '../theme';
 
@@ -11,8 +10,10 @@ export default function SearchScreen() {
   const search = useVaultStore(s => s.search);
   const results = q.trim() ? search(q) : [];
 
-  return (
-    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
+  // 表头收进 ListHeaderComponent，让 EntryList（虚拟列表）成为唯一滚动容器，
+  // 避免 VirtualizedList 嵌在 ScrollView 里破坏 windowing（RN 会报错）。
+  const header = (
+    <View>
       <TextInput
         autoFocus
         placeholder="支持 #tag / status:todo / date:>=2026-05-01"
@@ -22,8 +23,12 @@ export default function SearchScreen() {
         style={[baseStyles.input, { borderColor: theme.border, color: theme.fg, marginTop: 16 }]}
       />
       <Text style={{ color: theme.muted, marginVertical: 8 }}>{q.trim() && `${results.length} 条结果`}</Text>
-      <AskAI entries={results} />
-      <EntryList entries={results} />
-    </ScrollView>
+    </View>
+  );
+
+  return (
+    <View style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
+      <EntryList entries={results} ListHeaderComponent={header} groupByDate={false} />
+    </View>
   );
 }

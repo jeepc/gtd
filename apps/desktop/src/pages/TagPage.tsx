@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import EntryList from '../components/EntryList.tsx';
-import AskAI from '../components/AskAI.tsx';
 import { useVaultStore } from '../state/vaultStore.ts';
 
 type Filter = 'all' | 'todo' | 'done';
@@ -29,7 +28,6 @@ export default function TagPage() {
         <button onClick={() => setFilter('todo')} disabled={filter === 'todo'}>仅未完成</button>
         <button onClick={() => setFilter('done')} disabled={filter === 'done'}>仅已完成</button>
       </div>
-      <AskAI entries={filtered} />
       <EntryList entries={filtered} />
     </>
   );

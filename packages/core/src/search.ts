@@ -4,6 +4,7 @@ export interface SearchQuery {
   text: string[];
   tags: string[];
   status?: EntryStatus;
+  priority?: number;         // 1 | 2 | 3 (P1 highest)
   dateExact?: string;        // YYYY-MM or YYYY-MM-DD prefix match
   dateGte?: string;          // YYYY-MM-DD
   dateLte?: string;          // YYYY-MM-DD
@@ -15,6 +16,7 @@ const STATUS_VALUES: EntryStatus[] = ['todo', 'done', 'log'];
  * Parse search syntax (§4.4):
  *   `#tag`                 → tag filter
  *   `status:todo|done|log` → status
+ *   `priority:1|2|3` / `p1` → priority filter (P1 highest)
  *   `date:2026-05`         → date prefix
  *   `date:>=2026-05-01`    → date gte
  *   `date:<=2026-05-31`    → date lte
@@ -34,6 +36,12 @@ export function parseSearchQuery(input: string): SearchQuery {
       if (STATUS_VALUES.includes(v)) q.status = v;
       continue;
     }
+    // `priority:2` or the `p2` shorthand (mirrors the `!`/`!!`/`!!!` levels).
+    const pm = /^(?:priority:|p)([1-3])$/i.exec(raw);
+    if (pm) {
+      q.priority = Number(pm[1]);
+      continue;
+    }
     if (raw.startsWith('date:')) {
       const v = raw.slice('date:'.length);
       if (v.startsWith('>=')) q.dateGte = v.slice(2);
@@ -49,6 +57,7 @@ export function parseSearchQuery(input: string): SearchQuery {
 export function matchesQuery(entry: Entry, q: SearchQuery): boolean {
   if (entry.metadata.deleted) return false;
   if (q.status && entry.status !== q.status) return false;
+  if (q.priority !== undefined && entry.metadata.priority !== q.priority) return false;
   if (q.tags.length && !q.tags.every(t => entry.tags.includes(t))) return false;
   if (q.dateExact && !entry.date.startsWith(q.dateExact)) return false;
   if (q.dateGte && entry.date < q.dateGte) return false;
