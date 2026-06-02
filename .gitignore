@@ -12,6 +12,7 @@ ios/build/
 android/build/
 android/app/build/
 android/.gradle/
+android/app/.cxx/
 *.tsbuildinfo
 .env
 .env.local
