@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useVaultStore } from '../state/vaultStore';
-import { useTheme, baseStyles } from '../theme';
+import { useTheme, baseStyles, useScreenBottomInset } from '../theme';
 
 export default function AboutScreen() {
   const theme = useTheme();
+  const bottomInset = useScreenBottomInset();
   const appSettings = useVaultStore(s => s.appSettings);
   const reloadVault = useVaultStore(s => s.reloadVault);
   const [reloadMsg, setReloadMsg] = useState('');
 
   return (
-    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
+    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]} contentContainerStyle={bottomInset}>
       <Text style={{ color: theme.fg, fontSize: 16, marginVertical: 8 }}>版本：0.1.0</Text>
       <Text style={{ color: theme.muted }}>数据目录：{appSettings.vaultPath || '(未设置)'}</Text>
       <Text style={{ color: theme.muted, marginTop: 16 }}>所有数据为本地 Markdown 文件，可用 Obsidian / Logseq 打开。</Text>

@@ -1,6 +1,6 @@
 import { useRef, useState, type ComponentRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Modal, Pressable, Switch } from 'react-native';
-import { useTheme, baseStyles, type Theme } from '../theme';
+import { useTheme, baseStyles, useScreenBottomInset, type Theme } from '../theme';
 import { useVaultStore } from '../state/vaultStore';
 
 type ThemePref = 'auto' | 'dark' | 'light';
@@ -12,6 +12,7 @@ const THEME_OPTIONS: [ThemePref, string][] = [
 
 export default function AppearanceScreen() {
   const theme = useTheme();
+  const bottomInset = useScreenBottomInset();
   const vaultConfig = useVaultStore(s => s.vaultConfig);
   const saveVaultConfig = useVaultStore(s => s.saveVaultConfig);
   const appSettings = useVaultStore(s => s.appSettings);
@@ -20,7 +21,7 @@ export default function AppearanceScreen() {
   const showToolbar = appSettings.ui?.showInputToolbar ?? true;
 
   return (
-    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
+    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]} contentContainerStyle={bottomInset}>
       <View style={[baseStyles.row, { justifyContent: 'space-between' }]}>
         <Text style={{ color: theme.fg, fontSize: 16 }}>主题</Text>
         <View style={{ flex: 1, marginLeft: 16 }}>

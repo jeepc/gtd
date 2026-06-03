@@ -3,12 +3,14 @@ import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from 'reac
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { userFields } from '@loop/core';
 import { useVaultStore } from '../state/vaultStore';
-import { useTheme, baseStyles } from '../theme';
+import { useTheme, baseStyles, useScreenBottomInset } from '../theme';
 
 export default function EntryDetailScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const theme = useTheme();
+  // 早返回（未找到条目）之前调用，遵守 hooks 规则。
+  const bottomInset = useScreenBottomInset();
   const id: string = route.params?.id;
   const entry = useVaultStore(s => s.entries.find(e => e.id === id));
   const update = useVaultStore(s => s.update);
@@ -39,7 +41,7 @@ export default function EntryDetailScreen() {
   };
 
   return (
-    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
+    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]} contentContainerStyle={bottomInset}>
       <TextInput
         multiline
         value={content}

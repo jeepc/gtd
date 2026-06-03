@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useVaultStore } from '../state/vaultStore';
 import type { Entry } from '@loop/core';
-import { useTheme, baseStyles } from '../theme';
+import { useTheme, baseStyles, useScreenBottomInset } from '../theme';
 
 interface Pair { local: Entry; remote: Entry | null }
 
 export default function ConflictsScreen() {
   const theme = useTheme();
+  const bottomInset = useScreenBottomInset();
   const vault = useVaultStore(s => s.vault);
   const resolve = useVaultStore(s => s.resolveConflict);
   const [pairs, setPairs] = useState<Pair[]>([]);
@@ -29,7 +30,7 @@ export default function ConflictsScreen() {
   }
 
   return (
-    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
+    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]} contentContainerStyle={bottomInset}>
       <Text style={[baseStyles.title, { color: theme.fg, marginVertical: 12 }]}>冲突 {pairs.length}</Text>
       {pairs.length === 0 && <Text style={{ color: theme.muted, padding: 24, textAlign: 'center' }}>没有冲突</Text>}
       {pairs.map(({ local, remote }) => (

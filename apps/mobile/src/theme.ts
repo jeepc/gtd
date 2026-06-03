@@ -1,4 +1,5 @@
 import { StyleSheet, useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVaultStore } from './state/vaultStore';
 
 export interface Theme {
@@ -28,6 +29,16 @@ export function useTheme(): Theme {
   const pref = useVaultStore(s => s.vaultConfig.ui.theme);
   const mode = pref === 'auto' ? (system === 'dark' ? 'dark' : 'light') : pref;
   return mode === 'dark' ? dark : light;
+}
+
+/**
+ * 沉浸式（edge-to-edge）下页面内容会延伸到底部导航栏/手势条后面。给可滚动页面的
+ * contentContainerStyle 加上这个底部 inset，避免最后的按钮/内容被系统条遮住。
+ * 列表页（EntryList）自带处理，这里供 baseStyles.screen 的 ScrollView 页面复用。
+ */
+export function useScreenBottomInset(): { paddingBottom: number } {
+  const insets = useSafeAreaInsets();
+  return { paddingBottom: insets.bottom + 16 };
 }
 
 export const baseStyles = StyleSheet.create({

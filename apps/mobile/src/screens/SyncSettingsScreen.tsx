@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Switch, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { useVaultStore, saveSecret, loadSecret, refFor } from '../state/vaultStore';
 import { WebDAVClient } from '@loop/core';
-import { useTheme, baseStyles } from '../theme';
+import { useTheme, baseStyles, useScreenBottomInset } from '../theme';
 
 export default function SyncSettingsScreen() {
-  const nav = useNavigation<any>();
   const theme = useTheme();
+  const bottomInset = useScreenBottomInset();
   const appSettings = useVaultStore(s => s.appSettings);
   const saveAppSettings = useVaultStore(s => s.saveAppSettings);
   const syncNow = useVaultStore(s => s.syncNow);
@@ -22,20 +21,21 @@ export default function SyncSettingsScreen() {
   const [syncOnBlur, setSyncOnBlur] = useState(appSettings.sync.syncOnBlur);
   const [test, setTest] = useState('');
 
-  async function save() {
+  // 改动即时自动保存（无保存按钮）：字段变化后合并当前 state + 覆盖值写盘。
+  async function persist(override: Partial<{ url: string; user: string; pass: string; autoSync: boolean; intervalMin: string; syncOnFocus: boolean; syncOnBlur: boolean }> = {}) {
+    const v = { url, user, pass, autoSync, intervalMin, syncOnFocus, syncOnBlur, ...override };
     const ref = refFor('webdav');
-    if (pass) await saveSecret(ref, pass);
+    if (v.pass) await saveSecret(ref, v.pass);
     await saveAppSettings({
       ...appSettings,
       sync: {
-        webdav: url ? { url, username: user, passwordRef: ref } : null,
-        autoSync,
-        intervalMinutes: Math.max(1, Number(intervalMin) || 5),
-        syncOnFocus,
-        syncOnBlur,
+        webdav: v.url ? { url: v.url, username: v.user, passwordRef: ref } : null,
+        autoSync: v.autoSync,
+        intervalMinutes: Math.max(1, Number(v.intervalMin) || 5),
+        syncOnFocus: v.syncOnFocus,
+        syncOnBlur: v.syncOnBlur,
       },
     });
-    nav.goBack();
   }
 
   async function testConn() {
@@ -48,31 +48,30 @@ export default function SyncSettingsScreen() {
   }
 
   return (
-    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]}>
+    <ScrollView style={[baseStyles.screen, { backgroundColor: theme.bg }]} contentContainerStyle={bottomInset}>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>URL</Text>
-        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={url} onChangeText={setUrl} autoCapitalize="none" />
+        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={url} onChangeText={setUrl} onEndEditing={() => persist()} autoCapitalize="none" />
       </View>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>用户名</Text>
-        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={user} onChangeText={setUser} autoCapitalize="none" />
+        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={user} onChangeText={setUser} onEndEditing={() => persist()} autoCapitalize="none" />
       </View>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>密码</Text>
-        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={pass} onChangeText={setPass} secureTextEntry placeholder={dav ? '（保留不变）' : ''} placeholderTextColor={theme.muted} />
+        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={pass} onChangeText={setPass} onEndEditing={() => persist()} secureTextEntry placeholder={dav ? '（保留不变）' : ''} placeholderTextColor={theme.muted} />
       </View>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>自动同步</Text>
-        <Switch value={autoSync} onValueChange={setAutoSync} />
+        <Switch value={autoSync} onValueChange={v => { setAutoSync(v); persist({ autoSync: v }); }} />
       </View>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>周期 (分钟)</Text>
-        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={intervalMin} onChangeText={setIntervalMin} keyboardType="number-pad" />
+        <TextInput style={[baseStyles.input, { flex: 1, borderColor: theme.border, color: theme.fg }]} value={intervalMin} onChangeText={setIntervalMin} onEndEditing={() => persist()} keyboardType="number-pad" />
       </View>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>切回前台时同步</Text>
-        <Switch value={syncOnFocus} onValueChange={setSyncOnFocus} />
+        <Switch value={syncOnFocus} onValueChange={v => { setSyncOnFocus(v); persist({ syncOnFocus: v }); }} />
       </View>
       <View style={baseStyles.row}><Text style={[baseStyles.label, { color: theme.muted }]}>切到后台时同步</Text>
-        <Switch value={syncOnBlur} onValueChange={setSyncOnBlur} />
+        <Switch value={syncOnBlur} onValueChange={v => { setSyncOnBlur(v); persist({ syncOnBlur: v }); }} />
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginVertical: 12 }}>
         <TouchableOpacity style={[baseStyles.button, { borderColor: theme.border }]} onPress={testConn}><Text style={{ color: theme.fg }}>测试连接</Text></TouchableOpacity>
-        <TouchableOpacity style={[baseStyles.button, { borderColor: theme.border }]} onPress={save}><Text style={{ color: theme.fg }}>保存</Text></TouchableOpacity>
         <TouchableOpacity style={[baseStyles.button, { borderColor: theme.border }]} onPress={syncNow}><Text style={{ color: theme.fg }}>立即同步</Text></TouchableOpacity>
       </View>
       {test && <Text style={{ color: theme.muted }}>{test}</Text>}

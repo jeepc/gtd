@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { View, Text, Alert, type RefreshControlProps } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SwipeListView } from 'react-native-swipe-list-view';
 import type { Entry } from '@loop/core';
 import { useVaultStore } from '../state/vaultStore';
@@ -21,8 +22,12 @@ interface Props {
 
 export default function EntryList({ entries, ListHeaderComponent, refreshControl, groupByDate = true }: Props) {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const toggle = useVaultStore(s => s.toggleDone);
   const remove = useVaultStore(s => s.remove);
+  // 沉浸式（edge-to-edge）下内容会延伸到底部导航栏/手势条后面，
+  // 给列表底部留出 inset，避免最后一条 todo 被系统条遮住。
+  const contentContainerStyle = { paddingBottom: insets.bottom };
 
   const empty = (
     <View style={{ padding: 32, alignItems: 'center' }}>
@@ -44,6 +49,7 @@ export default function EntryList({ entries, ListHeaderComponent, refreshControl
         data={entries}
         keyExtractor={e => e.id}
         ListHeaderComponent={ListHeaderComponent}
+        contentContainerStyle={contentContainerStyle}
         refreshControl={refreshControl}
         keyboardShouldPersistTaps="handled"
         ListEmptyComponent={empty}
@@ -61,6 +67,7 @@ export default function EntryList({ entries, ListHeaderComponent, refreshControl
       sections={groupSections(entries)}
       keyExtractor={e => e.id}
       ListHeaderComponent={ListHeaderComponent}
+      contentContainerStyle={contentContainerStyle}
       refreshControl={refreshControl}
       keyboardShouldPersistTaps="handled"
       stickySectionHeadersEnabled={false}
