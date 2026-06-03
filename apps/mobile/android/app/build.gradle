@@ -19,6 +19,13 @@ react {
     reactNativeDir = rootProject.file("../../../node_modules/react-native")
     codegenDir = rootProject.file("../../../node_modules/@react-native/codegen")
     cliFile = rootProject.file("../../../node_modules/react-native/cli.js")
+    //   RN 0.84 把 Hermes 编译器拆到独立的 hermes-compiler 包。pnpm node-linker=hoisted 下它只在
+    //   monorepo 根 node_modules，而插件默认按 react{ root }（=apps/mobile）查找会落空，故显式指向根。
+    //   注意：hermesCommand 走插件分支只做 %OS-BIN% 替换、不补 .exe，所以二进制名要按系统自带。
+    def hermescOsBin = System.getProperty("os.name").toLowerCase().contains("windows") ? "win64-bin/hermesc.exe"
+        : System.getProperty("os.name").toLowerCase().contains("mac") ? "osx-bin/hermesc"
+        : "linux64-bin/hermesc"
+    hermesCommand = rootProject.file("../../../node_modules/hermes-compiler/hermesc/${hermescOsBin}").toString()
 
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to
