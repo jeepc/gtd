@@ -21,20 +21,21 @@ export default function SyncSettingsPage() {
   const [syncOnBlur, setSyncOnBlur] = useState(appSettings.sync.syncOnBlur);
   const [testMsg, setTestMsg] = useState('');
 
-  async function save() {
+  // 改动即时自动保存（无保存按钮）：字段变化后合并当前 state + 覆盖值写盘。
+  async function persist(override: Partial<{ url: string; user: string; pass: string; autoSync: boolean; intervalMin: number; syncOnFocus: boolean; syncOnBlur: boolean }> = {}) {
+    const v = { url, user, pass, autoSync, intervalMin, syncOnFocus, syncOnBlur, ...override };
     const passwordRef = refFor('webdav');
-    if (pass) await saveSecret(passwordRef, pass);
+    if (v.pass) await saveSecret(passwordRef, v.pass);
     await saveAppSettings({
       ...appSettings,
       sync: {
-        webdav: url ? { url, username: user, passwordRef } : null,
-        autoSync,
-        intervalMinutes: intervalMin,
-        syncOnFocus,
-        syncOnBlur,
+        webdav: v.url ? { url: v.url, username: v.user, passwordRef } : null,
+        autoSync: v.autoSync,
+        intervalMinutes: Math.max(1, Number(v.intervalMin) || 5),
+        syncOnFocus: v.syncOnFocus,
+        syncOnBlur: v.syncOnBlur,
       },
     });
-    navigate(-1);
   }
 
   async function test() {
@@ -54,16 +55,15 @@ export default function SyncSettingsPage() {
       <span className="back-link" onClick={() => navigate(-1)}>← 返回</span>
       <div className="title">同步配置</div>
       <div className="section" style={{ marginTop: 16 }}>
-        <div className="row"><label>WebDAV URL</label><input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://dav.example.com/dav/" /></div>
-        <div className="row"><label>用户名</label><input value={user} onChange={e => setUser(e.target.value)} /></div>
-        <div className="row"><label>密码</label><input type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder={dav ? '（保留不变）' : ''} /></div>
-        <div className="row"><label>自动同步</label><input type="checkbox" checked={autoSync} onChange={e => setAutoSync(e.target.checked)} /></div>
-        <div className="row"><label>周期分钟</label><input type="number" min={1} value={intervalMin} onChange={e => setIntervalMin(Number(e.target.value) || 5)} /></div>
-        <div className="row"><label>窗口获焦时同步</label><input type="checkbox" checked={syncOnFocus} onChange={e => setSyncOnFocus(e.target.checked)} /></div>
-        <div className="row"><label>窗口失焦时同步</label><input type="checkbox" checked={syncOnBlur} onChange={e => setSyncOnBlur(e.target.checked)} /></div>
+        <div className="row"><label>WebDAV URL</label><input value={url} onChange={e => setUrl(e.target.value)} onBlur={() => persist()} placeholder="https://dav.example.com/dav/" /></div>
+        <div className="row"><label>用户名</label><input value={user} onChange={e => setUser(e.target.value)} onBlur={() => persist()} /></div>
+        <div className="row"><label>密码</label><input type="password" value={pass} onChange={e => setPass(e.target.value)} onBlur={() => persist()} placeholder={dav ? '（保留不变）' : ''} /></div>
+        <div className="row"><label>自动同步</label><input type="checkbox" checked={autoSync} onChange={e => { setAutoSync(e.target.checked); persist({ autoSync: e.target.checked }); }} /></div>
+        <div className="row"><label>周期分钟</label><input type="number" min={1} value={intervalMin} onChange={e => setIntervalMin(Number(e.target.value) || 5)} onBlur={() => persist()} /></div>
+        <div className="row"><label>窗口获焦时同步</label><input type="checkbox" checked={syncOnFocus} onChange={e => { setSyncOnFocus(e.target.checked); persist({ syncOnFocus: e.target.checked }); }} /></div>
+        <div className="row"><label>窗口失焦时同步</label><input type="checkbox" checked={syncOnBlur} onChange={e => { setSyncOnBlur(e.target.checked); persist({ syncOnBlur: e.target.checked }); }} /></div>
         <div className="row">
           <button onClick={test}>测试连接</button>
-          <button onClick={save}>保存</button>
           <button onClick={syncNow}>立即同步</button>
         </div>
         {testMsg && <div className="meta">{testMsg}</div>}
