@@ -207,7 +207,9 @@ fn main() {
         .plugin(tauri_plugin_http::init())
         // macOS launcher defaults to LaunchAgent; the explicit setter is
         // cfg(macos)-only, so we rely on the default to stay cross-platform.
-        .plugin(tauri_plugin_autostart::Builder::new().build())
+        // `--autostart` is appended only to the OS autostart entry, so a boot
+        // launch can be told apart from a manual one (see setup → started_from_autostart).
+        .plugin(tauri_plugin_autostart::Builder::new().arg("--autostart").build())
         .invoke_handler(tauri::generate_handler![
             export_vault,
             secret_save,
@@ -216,6 +218,16 @@ fn main() {
             mcp_health_check,
         ])
         .setup(|app| {
+            // The window starts hidden (tauri.conf.json `visible: false`). On a
+            // normal launch we reveal it; on a boot/autostart launch (marked by
+            // the `--autostart` arg the plugin appends) we leave it hidden so the
+            // app sits silently in the tray with no window flashing on screen.
+            let started_from_autostart =
+                std::env::args().any(|a| a == "--autostart");
+            if !started_from_autostart {
+                show_main_window(app.handle());
+            }
+
             // System tray. Left-click restores the window; the menu offers an
             // explicit "显示主窗口" plus a real "退出" that actually quits the process
             // (closing the window only hides it — see on_window_event below).
