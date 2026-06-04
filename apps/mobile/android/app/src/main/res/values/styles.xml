@@ -4,6 +4,8 @@
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <!-- 窗口背景与 app 背景一致：页面切换动画/冷启动时不再透出默认白底。 -->
+        <item name="android:windowBackground">@color/window_bg</item>
         <!-- 沉浸式状态栏 + 导航栏：两者都透明，应用内容延伸到系统栏后面，
              避免冷启动时闪出系统默认底色。状态栏图标明暗由 JS 端按主题动态设置；
              导航栏（手势条）背景透明后透出 app 自身的 theme.bg，

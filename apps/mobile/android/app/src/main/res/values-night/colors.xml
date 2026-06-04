@@ -1,0 +1,4 @@
+<resources>
+    <!-- 深色窗口背景：与 JS 端 theme.bg 精确对齐（dark=#0b0b0c）。 -->
+    <color name="window_bg">#0b0b0c</color>
+</resources>

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { Appearance, AppState, type AppStateStatus } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -25,8 +25,16 @@ export default function App() {
   const onBg = useVaultStore(s => s.onAppBackground);
   const navRef = useNavigationContainerRef();
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const themePref = useVaultStore(s => s.vaultConfig.ui.theme);
 
   useEffect(() => { init(); }, [init]);
+
+  // 把应用内主题偏好下推到原生 DayNight（Android 上调用 AppCompatDelegate.setDefaultNightMode）。
+  // 否则强制深色而系统为浅色时，原生 windowBackground / 系统栏仍停留在浅色资源，
+  // 导致页面切换动画闪白、底部导航栏发白。'auto' → 跟随系统。
+  useEffect(() => {
+    Appearance.setColorScheme(themePref === 'auto' ? 'unspecified' : themePref);
+  }, [themePref]);
 
   // PRD §4.7.2 mobile sync triggers via AppState foreground/background.
   useEffect(() => {

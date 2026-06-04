@@ -4,6 +4,8 @@
          手势条需用浅色图标才看得清。背景透明本身已由 values/styles.xml 设置。 -->
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <!-- 深色窗口背景（@color/window_bg 自带 night 变体），消除切换时的白闪。 -->
+        <item name="android:windowBackground">@color/window_bg</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>

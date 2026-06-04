@@ -1,0 +1,6 @@
+<resources>
+    <!-- 窗口背景：与 JS 端 theme.bg 精确对齐（light=#ffffff），
+         避免原生页面切换动画/冷启动时透出与 app 不一致的默认底色。
+         深色值见 values-night/colors.xml。 -->
+    <color name="window_bg">#ffffff</color>
+</resources>
