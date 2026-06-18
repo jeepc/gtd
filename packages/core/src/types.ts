@@ -142,6 +142,8 @@ export interface VaultConfig {
   ui: {
     theme: 'auto' | 'light' | 'dark';
     language: 'zh-CN' | 'en-US';
+    /** Pin `ongoing` entries to the top of the home list (PRD §4.9.1). Default on. */
+    ongoing_pinned?: boolean;
   };
   tagColors: Record<string, string>;
 }
@@ -189,7 +191,7 @@ export const DATA_FORMAT_VERSION = 1;
 export function defaultVaultConfig(): VaultConfig {
   return {
     version: 1,
-    ui: { theme: 'dark', language: 'zh-CN' },
+    ui: { theme: 'dark', language: 'zh-CN', ongoing_pinned: true },
     tagColors: {},
   };
 }

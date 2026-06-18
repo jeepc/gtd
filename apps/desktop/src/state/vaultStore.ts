@@ -1,10 +1,12 @@
 import { create } from 'zustand';
 import {
-  Vault, type Entry, type VaultConfig, type AppSettings, defaultVaultConfig, defaultAppSettings,
-  type EntryStatus, searchEntries, WebDAVClient, sync, type SyncSummary,
-  type ScalarValue, reconcileReminders, parseCapture,
+  LoopDB, type Entry, type VaultConfig, type AppSettings, defaultVaultConfig, defaultAppSettings,
+  type EntryStatus, searchEntries, WebDAVClient, syncOps, type SyncOpsSummary,
+  type ScalarValue, reconcileReminders, parseCapture, ulid,
+  type Storage, type FileSystem,
 } from '@loop/core';
 import { LocalStorageFileSystem, TauriFileSystem } from '../platform/tauriFs.ts';
+import { TauriSqliteStorage } from '../platform/tauriSqlite.ts';
 import { TauriAppSettings } from '../platform/tauriSettings.ts';
 import { loadSecret, refFor } from '../platform/secrets.ts';
 import { createDesktopNotifier } from '../platform/notifications.ts';
@@ -13,24 +15,26 @@ import { webdavFetch } from '../platform/webdavFetch.ts';
 const isTauri = !!(window as any).__TAURI_INTERNALS__;
 
 /**
- * Sync state machine per PRD §4.7.1.
- *   idle           — last sync succeeded
- *   syncing        — pull/push in progress
- *   pull_required  — push rejected (divergence); will auto-pull and retry
- *   conflict       — true conflict written to `.conflicts/`
- *   error          — network / auth failure
- *   disabled       — user turned off sync or no WebDAV configured
+ * Sync state machine (PRD §4.7.1), simplified for the v2.0 op-level sync.
+ *   idle      — last sync succeeded
+ *   syncing   — pull/push in progress
+ *   error     — network / auth failure
+ *   disabled  — user turned off sync or no WebDAV configured
+ *
+ * The v1.x `pull_required` and `conflict` states are gone: the op log is
+ * append-only and merged by ULID order, so there are no push rejections or
+ * entry-level conflicts to resolve (§6.4).
  */
-export type SyncStatus = 'idle' | 'syncing' | 'pull_required' | 'conflict' | 'error' | 'disabled';
+export type SyncStatus = 'idle' | 'syncing' | 'error' | 'disabled';
 
 interface VaultState {
-  vault: Vault | null;
+  db: LoopDB | null;
   entries: Entry[];
   vaultConfig: VaultConfig;
   appSettings: AppSettings;
   syncStatus: SyncStatus;
   syncStatusDetail: string;
-  lastSync: SyncSummary | null;
+  lastSync: SyncOpsSummary | null;
   banner: string | null;
   /** True when no usable vault path is configured — UI redirects to WelcomeScreen. */
   needsWelcome: boolean;
@@ -40,7 +44,7 @@ interface VaultState {
   init(): Promise<void>;
   initVault(absolutePath: string): Promise<void>;
   refresh(): Promise<void>;
-  reloadVault(): Promise<void>;
+  rebuildDatabase(): Promise<void>;
 
   create(content: string, status?: EntryStatus): Promise<void>;
   toggleDone(id: string, done: boolean): Promise<void>;
@@ -53,7 +57,6 @@ interface VaultState {
 
   syncNow(): Promise<void>;
   scheduleAutoSync(): void;
-  resolveConflict(id: string, choice: 'local' | 'remote' | 'both'): Promise<void>;
   search(query: string): Entry[];
 
   onWindowFocus(): void;
@@ -62,11 +65,15 @@ interface VaultState {
 
 let autoSyncTimer: ReturnType<typeof setTimeout> | null = null;
 let periodicSyncTimer: ReturnType<typeof setInterval> | null = null;
+// Held outside the reactive store: `syncOps` needs the FileSystem + Storage that
+// back the current LoopDB, but neither is rendered, so they don't belong in state.
+let currentFs: FileSystem | null = null;
+let currentStorage: Storage | null = null;
 const settingsStore = new TauriAppSettings();
 const reminderNotifier = createDesktopNotifier();
 
 export const useVaultStore = create<VaultState>((set, get) => ({
-  vault: null,
+  db: null,
   entries: [],
   vaultConfig: defaultVaultConfig(),
   appSettings: defaultAppSettings(),
@@ -78,7 +85,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   initializing: true,
 
   async init() {
-    if (get().vault) { set({ initializing: false }); return; }
+    if (get().db) { set({ initializing: false }); return; }
 
     // 1. Load AppSettings first (vault path lives here).
     const settings = await settingsStore.load();
@@ -107,8 +114,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
 
   async initVault(absolutePath: string) {
     const fs = isTauri ? new TauriFileSystem(absolutePath) : new LocalStorageFileSystem();
-    const vault = new Vault(fs);
-    const vaultConfig = await vault.loadVaultConfig();
+    currentFs = fs;
+
     // Persist the path (no-op if already saved by WelcomeScreen).
     const settings = get().appSettings;
     if (settings.vaultPath !== absolutePath) {
@@ -116,9 +123,28 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       await settingsStore.save(next);
       set({ appSettings: next });
     }
-    set({ vault, vaultConfig, needsWelcome: false, syncStatus: deriveDisabledState(get().appSettings) });
+
+    // The SQLite Storage backend is native-only. In browser dev there is no
+    // rusqlite, so run UI-only with no DB rather than crashing.
+    if (!isTauri) {
+      currentStorage = null;
+      set({
+        db: null, vaultConfig: defaultVaultConfig(), needsWelcome: false,
+        syncStatus: 'disabled', banner: '浏览器预览暂不支持 SQLite，请在 Tauri 中运行',
+      });
+      return;
+    }
+
+    // `data.db` lives at the vault root but is never synced — it is the disposable
+    // local query authority, rebuilt from the op log when absent (§1.5.5).
+    const storage = await TauriSqliteStorage.open(`${absolutePath}/data.db`);
+    currentStorage = storage;
+    const db = new LoopDB(storage, fs, getDeviceId());
+    await db.init(); // creates schema + rebuilds from op log if the DB is missing/stale
+
+    const vaultConfig = await loadVaultConfig(db);
+    set({ db, vaultConfig, needsWelcome: false, syncStatus: deriveDisabledState(get().appSettings) });
     await get().refresh();
-    vault.gcTombstones().catch(() => { /* best-effort */ });
 
     // PRD §4.7.2: startup sync is delayed 3s so the UI is interactive first.
     const trySync = () => {
@@ -131,9 +157,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   async refresh() {
-    const v = get().vault;
-    if (!v) return;
-    const entries = await v.listEntries({ limit: 500 });
+    const db = get().db;
+    if (!db) return;
+    const entries = await db.listEntries({ limit: 500 });
     set({ entries });
     try {
       await reconcileReminders(entries, reminderNotifier);
@@ -142,11 +168,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
     }
   },
 
-  async reloadVault() {
-    const v = get().vault;
-    if (!v) return;
-    // PRD §1.5.5 #4: full rebuild path to recover from any state divergence.
-    v.invalidateAll();
+  async rebuildDatabase() {
+    const db = get().db;
+    if (!db) return;
+    // PRD §1.5.5 #3: data.db is disposable — replay the op log to recover from
+    // any state divergence (Ctrl/Cmd+R, or the About-page button).
+    await db.rebuild();
     await get().refresh();
   },
 
@@ -158,13 +185,13 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   async create(content, _status = 'todo') {
-    const v = get().vault;
-    if (!v || !content.trim()) return;
-    // Level 2 capture: extracts `@time`→due and trailing `!`→priority for todos
-    // (database-design v1.1 §4.3); /log /done bodies pass through unchanged.
+    const db = get().db;
+    if (!db || !content.trim()) return;
+    // Level 2 capture: extracts `@time`→due, trailing `!`→priority, and the
+    // `/ongoing` (and other) status commands (database-design §4.3).
     const { status: s, content: c, metadata } = parseCapture(content);
     try {
-      await v.createEntry({ content: c, status: s, metadata });
+      await db.createEntry({ content: c, status: s, metadata });
     } catch (e) {
       set({ banner: '保存失败：' + (e as Error).message });
       throw e;
@@ -174,34 +201,37 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   async toggleDone(id, done) {
-    const v = get().vault;
-    if (!v) return;
-    await v.updateEntry(id, { status: done ? 'done' : 'todo' });
+    const db = get().db;
+    if (!db) return;
+    await db.updateEntry(id, { status: done ? 'done' : 'todo' });
     await get().refresh();
     get().scheduleAutoSync();
   },
 
   async update(id, patch) {
-    const v = get().vault;
-    if (!v) return;
-    await v.updateEntry(id, patch);
+    const db = get().db;
+    if (!db) return;
+    await db.updateEntry(id, patch);
     await get().refresh();
     get().scheduleAutoSync();
   },
 
   async remove(id) {
-    const v = get().vault;
-    if (!v) return;
-    await v.deleteEntry(id);
+    const db = get().db;
+    if (!db) return;
+    await db.deleteEntry(id);
     await get().refresh();
     get().scheduleAutoSync();
   },
 
   async setProperty(id, key, value) {
-    const v = get().vault;
-    if (!v) return;
+    const db = get().db;
+    if (!db) return;
     try {
-      await v.setProperty(id, key, value);
+      // null clears a field — that goes through updateEntry's metadata patch
+      // (setProperty only accepts a concrete scalar).
+      if (value === null) await db.updateEntry(id, { metadata: { [key]: null } });
+      else await db.setProperty(id, key, value);
     } catch (e) {
       set({ banner: (e as Error).message });
       return;
@@ -211,9 +241,11 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   async saveVaultConfig(cfg) {
-    const v = get().vault;
-    if (!v) return;
-    await v.saveVaultConfig(cfg);
+    const db = get().db;
+    if (!db) { set({ vaultConfig: cfg }); return; }
+    // config.json is op-log-derived (§6.4): write the synced sub-trees as config ops.
+    await db.setConfig(['ui'], cfg.ui);
+    await db.setConfig(['tagColors'], cfg.tagColors);
     set({ vaultConfig: cfg });
   },
 
@@ -224,9 +256,9 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 
   async syncNow() {
-    const v = get().vault;
+    const db = get().db;
     const s = get().appSettings;
-    if (!v || !s.sync.webdav) {
+    if (!db || !currentFs || !currentStorage || !s.sync.webdav) {
       set({ syncStatus: 'disabled', banner: '尚未配置 WebDAV，前往「设置 → 同步配置」' });
       return;
     }
@@ -238,8 +270,8 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         username: s.sync.webdav.username,
         password,
       }, webdavFetch);
-      const summary = await sync({ local: (v as any).fs, remote });
-      v.invalidateAll();
+      // op-level sync: pulls/merges op files and applies new ops to SQLite itself.
+      const summary = await syncOps({ local: currentFs, remote, storage: currentStorage });
       const next = classifySyncResult(summary, s);
       set({ lastSync: summary, ...next });
     } catch (e) {
@@ -251,20 +283,6 @@ export const useVaultStore = create<VaultState>((set, get) => ({
       });
     } finally {
       await get().refresh();
-    }
-  },
-
-  async resolveConflict(id, choice) {
-    const v = get().vault;
-    if (!v) return;
-    const remote = choice === 'local' ? undefined : await v.findArchivedRemote(id) ?? undefined;
-    await v.resolveConflict(id, choice, remote);
-    await get().refresh();
-    const remaining = await v.listConflicts();
-    if (remaining.length === 0) {
-      set({ syncStatus: 'idle', syncStatusDetail: '冲突已解决', banner: null });
-    } else {
-      set({ banner: `${remaining.length} 个文件存在冲突` });
     }
   },
 
@@ -287,17 +305,33 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   },
 }));
 
+/** Stable per-device id (op origin marker). Persisted locally, outside the vault. */
+function getDeviceId(): string {
+  let id = localStorage.getItem('loop:deviceId');
+  if (!id) { id = ulid(); localStorage.setItem('loop:deviceId', id); }
+  return id;
+}
+
+/** Read config.json (op-derived) and hydrate it into a {@link VaultConfig}. */
+async function loadVaultConfig(db: LoopDB): Promise<VaultConfig> {
+  const def = defaultVaultConfig();
+  const raw = await db.getConfig();
+  const ui = (raw.ui ?? {}) as Partial<VaultConfig['ui']>;
+  return {
+    version: 1,
+    ui: { ...def.ui, ...ui },
+    tagColors: (raw.tagColors as Record<string, string>) ?? {},
+  };
+}
+
 function deriveDisabledState(s: AppSettings): SyncStatus {
   if (!s.sync.autoSync || !s.sync.webdav) return 'disabled';
   return 'idle';
 }
 
-function classifySyncResult(summary: SyncSummary, s: AppSettings): Partial<VaultState> {
+function classifySyncResult(summary: SyncOpsSummary, s: AppSettings): Partial<VaultState> {
   if (summary.errors.length > 0) {
     return { syncStatus: 'error', syncStatusDetail: summary.errors[0]!.message, banner: '同步失败：' + summary.errors[0]!.message };
-  }
-  if (summary.conflicts.length > 0) {
-    return { syncStatus: 'conflict', syncStatusDetail: `${summary.conflicts.length} 个文件存在冲突`, banner: `${summary.conflicts.length} 个文件存在冲突` };
   }
   return {
     syncStatus: deriveDisabledState(s) === 'disabled' ? 'disabled' : 'idle',

@@ -52,6 +52,9 @@ export default function App() {
       else if (meta && e.key === 'f') { e.preventDefault(); navigate('/search'); }
       else if (meta && e.key === ',') { e.preventDefault(); navigate('/settings'); }
       else if (meta && e.key === 's') { e.preventDefault(); useVaultStore.getState().syncNow(); }
+      // PRD §1.5.5 #3 / §7.2: rebuild the local DB from the op log. preventDefault
+      // overrides the WebView's reload binding.
+      else if (meta && (e.key === 'r' || e.key === 'R')) { e.preventDefault(); useVaultStore.getState().rebuildDatabase(); }
       else if (e.key === 'Escape') { history.back(); }
     };
     window.addEventListener('keydown', onKey);

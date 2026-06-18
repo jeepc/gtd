@@ -2,7 +2,7 @@ import { useVaultStore, type SyncStatus } from '../state/vaultStore.ts';
 
 /**
  * PRD §4.7.1: a single, always-visible sync indicator at the bottom of the
- * window. Six states, color-coded. Click to trigger a manual sync.
+ * window. Four states, color-coded. Click to trigger a manual sync.
  */
 export default function SyncStatusBar() {
   const status = useVaultStore(s => s.syncStatus);
@@ -43,8 +43,6 @@ export default function SyncStatusBar() {
 const STATUS_META: Record<SyncStatus, { label: string; color: string }> = {
   idle: { label: '已同步', color: '#10b981' },
   syncing: { label: '同步中…', color: '#3b82f6' },
-  pull_required: { label: '需要先拉取', color: '#f59e0b' },
-  conflict: { label: '存在冲突', color: '#f59e0b' },
   error: { label: '同步失败', color: '#6b7280' },
   disabled: { label: '未启用同步', color: '#6b7280' },
 };

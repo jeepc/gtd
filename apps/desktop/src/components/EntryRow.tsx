@@ -12,6 +12,7 @@ export default function EntryRow({ entry, onToggle, onDelete, focused }: Props) 
   const navigate = useNavigate();
   const isDone = entry.status === 'done';
   const isLog = entry.status === 'log';
+  const isOngoing = entry.status === 'ongoing';
   const due = typeof entry.metadata.due === 'string' && entry.status === 'todo'
     ? describeDue(entry.metadata.due)
     : null;
@@ -29,7 +30,7 @@ export default function EntryRow({ entry, onToggle, onDelete, focused }: Props) 
         if (confirm('删除此条目？')) onDelete(entry.id);
       }}
     >
-      {!isLog && (
+      {!isLog && !isOngoing && (
         <button
           type="button"
           className="entry-check"
@@ -41,6 +42,8 @@ export default function EntryRow({ entry, onToggle, onDelete, focused }: Props) 
         </button>
       )}
       {isLog && <span style={{ width: 16 }}>•</span>}
+      {/* ongoing (PRD §4.9.1): persistent, never checked off — a loop glyph, not a checkbox. */}
+      {isOngoing && <span className="entry-ongoing" title="持续进行中" aria-label="持续进行中" style={{ width: 16, color: 'var(--accent, #f97316)' }}>↻</span>}
       <span className="content" onClick={() => navigate(`/entry/${entry.id}`)}>
         {priority && (
           <span

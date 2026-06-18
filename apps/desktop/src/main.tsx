@@ -13,12 +13,24 @@ import McpServerPage from './pages/McpServerPage.tsx';
 import AboutPage from './pages/AboutPage.tsx';
 import AppearanceSettingsPage from './pages/AppearanceSettingsPage.tsx';
 import GeneralSettingsPage from './pages/GeneralSettingsPage.tsx';
-import ConflictsPage from './pages/ConflictsPage.tsx';
 import WelcomeScreen from './pages/WelcomeScreen.tsx';
+import ErrorBoundary from './components/ErrorBoundary.tsx';
 import './styles.css';
+
+// Surface module-eval / async errors that React's boundary can't catch, so the
+// window never sits blank with no clue (release builds have no console).
+function showFatal(message: string) {
+  const root = document.getElementById('root');
+  if (root && (root.childElementCount === 0 || (root.textContent ?? '').trim() === '')) {
+    root.innerHTML = `<pre style="padding:16px;color:#ef4444;font:12px monospace;white-space:pre-wrap">启动失败：\n${message}</pre>`;
+  }
+}
+window.addEventListener('error', e => showFatal(e.error?.stack ?? e.message));
+window.addEventListener('unhandledrejection', e => showFatal(String((e.reason && (e.reason.stack ?? e.reason.message)) ?? e.reason)));
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
+    <ErrorBoundary>
     <HashRouter>
       <Routes>
         <Route path="/" element={<App />}>
@@ -33,10 +45,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="settings/about" element={<AboutPage />} />
           <Route path="settings/appearance" element={<AppearanceSettingsPage />} />
           <Route path="settings/general" element={<GeneralSettingsPage />} />
-          <Route path="conflicts" element={<ConflictsPage />} />
           <Route path="welcome" element={<WelcomeScreen />} />
         </Route>
       </Routes>
     </HashRouter>
+    </ErrorBoundary>
   </React.StrictMode>,
 );

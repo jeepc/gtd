@@ -19,5 +19,10 @@
   "devDependencies": {
     "typescript": "^5.5.0",
     "@types/node": "^20.12.0"
+  },
+  "//overrides": "react/react-dom must be the exact same version (React 19 enforces this). apps/mobile pins react 19.2.3 (React Native requires an exact version), so we pin both here to keep desktop's react-dom from floating to a newer patch.",
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   }
 }

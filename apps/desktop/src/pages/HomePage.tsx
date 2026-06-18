@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QuickInput from '../components/QuickInput.tsx';
 import EntryList from '../components/EntryList.tsx';
@@ -7,10 +7,21 @@ import { useVaultStore } from '../state/vaultStore.ts';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const entries = useVaultStore(s => s.entries);
+  const rawEntries = useVaultStore(s => s.entries);
   const banner = useVaultStore(s => s.banner);
   const syncStatus = useVaultStore(s => s.syncStatus);
+  const ongoingPinned = useVaultStore(s => s.vaultConfig.ui.ongoing_pinned !== false);
   const [focusedIdx, setFocusedIdx] = useState<number>(-1);
+
+  // PRD §4.9.1: pin `ongoing` entries to the top (toggleable in settings).
+  // Drives both render and keyboard nav so j/k order matches what's on screen.
+  const entries = useMemo(() => {
+    if (!ongoingPinned) return rawEntries;
+    return [
+      ...rawEntries.filter(e => e.status === 'ongoing'),
+      ...rawEntries.filter(e => e.status !== 'ongoing'),
+    ];
+  }, [rawEntries, ongoingPinned]);
 
   // PRD §7.2 list keyboard navigation. Bound to Home only; ignores when an
   // input/textarea has focus (so typing in the quick input feels normal).
@@ -31,7 +42,8 @@ export default function HomePage() {
         if (focusedIdx < 0) return;
         e.preventDefault();
         const cur = entries[focusedIdx];
-        if (cur && cur.status !== 'log') {
+        // log entries have no checkbox; ongoing is never checked off (§4.9.1).
+        if (cur && cur.status !== 'log' && cur.status !== 'ongoing') {
           useVaultStore.getState().toggleDone(cur.id, cur.status !== 'done');
         }
       } else if (e.key === 'Enter') {
@@ -64,11 +76,7 @@ export default function HomePage() {
         <button onClick={() => navigate('/search')}>搜索</button>
         <button onClick={() => navigate('/settings')}>⋯</button>
       </div>
-      {banner && (
-        <div className="banner" onClick={() => banner.includes('冲突') && navigate('/conflicts')} style={{ cursor: banner.includes('冲突') ? 'pointer' : 'default' }}>
-          {banner}{banner.includes('冲突') && ' →'}
-        </div>
-      )}
+      {banner && <div className="banner">{banner}</div>}
       <QuickInput />
       <EntryList entries={entries} focusedId={focusedId} />
     </>

@@ -71,7 +71,7 @@ export default function SyncSettingsPage() {
           <div className="meta" style={{ marginTop: 12 }}>
             上次同步：{lastSync.finishedAt} ·
             推送 {lastSync.pushed.length} · 拉取 {lastSync.pulled.length} ·
-            合并 {lastSync.merged.length} · 冲突 {lastSync.conflicts.length}
+            合并 {lastSync.merged.length} · 应用 {lastSync.appliedOps} 个操作
           </div>
         )}
       </div>
