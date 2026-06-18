@@ -210,6 +210,11 @@ fn main() {
         // `--autostart` is appended only to the OS autostart entry, so a boot
         // launch can be told apart from a manual one (see setup → started_from_autostart).
         .plugin(tauri_plugin_autostart::Builder::new().arg("--autostart").build())
+        // SQLite storage (v2.0). The frontend (@tauri-apps/plugin-sql) opens
+        // `data.db` under the vault and sets `PRAGMA journal_mode=WAL` on connect
+        // so the app and the Node MCP server can share the file. data.db is never
+        // synced — it is rebuilt from the op log when missing (PRD §1.5.5).
+        .plugin(tauri_plugin_sql::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             export_vault,
             secret_save,

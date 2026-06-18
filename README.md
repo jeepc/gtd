@@ -18,11 +18,11 @@ apps/
 ## 起步
 
 ```bash
-pnpm install
-pnpm -r build              # 构建 core
-pnpm test                  # 跑 core 测试
-pnpm dev:desktop           # 启动桌面端
-pnpm dev:mobile            # 启动移动端 metro
+bun install
+bun run build             # 构建 core
+bun run test             # 跑 core 测试 (Vitest)
+bun run dev:desktop      # 启动桌面端
+bun run dev:mobile       # 启动移动端 metro
 cargo run --manifest-path apps/mcp-server/Cargo.toml  # 启动 MCP server
 ```
 

@@ -13,8 +13,7 @@ permissions:
   contents: write
 
 env:
-  PNPM_VERSION: '9'
-  NODE_VERSION: '20'
+  BUN_VERSION: '1.4.0'
 
 jobs:
   # 1) 先创建草稿 Release，供后续各平台作为上传目标，避免并行 job 重复创建竞态
@@ -43,14 +42,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          bun-version: ${{ env.BUN_VERSION }}
 
       - uses: actions/setup-java@v4
         with:
@@ -58,10 +52,10 @@ jobs:
           java-version: '17'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Build shared core
-        run: pnpm --filter @loop/core build
+        run: bun run --filter @loop/core build
 
       # RN 新架构 + Hermes 需要 NDK / CMake，安装与 build.gradle 中固定的版本一致
       - name: Install Android NDK & CMake
@@ -133,14 +127,9 @@ jobs:
             build-essential \
             libssl-dev
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          bun-version: ${{ env.BUN_VERSION }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -151,12 +140,12 @@ jobs:
           workspaces: apps/desktop/src-tauri -> target
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Build shared core
-        run: pnpm --filter @loop/core build
+        run: bun run --filter @loop/core build
 
-      # tauri-action 会执行 beforeBuildCommand(pnpm build) 并把产物上传到指定 release
+      # tauri-action 会执行 beforeBuildCommand(bun run build) 并把产物上传到指定 release
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

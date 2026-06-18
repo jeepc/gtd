@@ -13,13 +13,13 @@ react {
     /* Folders */
     //   The root of your project, i.e. where "package.json" lives (apps/mobile).
     root = rootProject.file("../")
-    //   本仓库 pnpm node-linker=hoisted：react-native / @react-native/* 被提升到 monorepo 根
-    //   node_modules，apps/mobile/node_modules 下没有。这些字面量相对路径以 rootProject
+    //   本仓库 bun hoisted（bunfig.toml linker="hoisted"）：react-native / @react-native/* 被提升到
+    //   monorepo 根 node_modules。这些字面量相对路径以 rootProject
     //   (apps/mobile/android) 为基准，../../../node_modules 即仓库根 node_modules。
     reactNativeDir = rootProject.file("../../../node_modules/react-native")
     codegenDir = rootProject.file("../../../node_modules/@react-native/codegen")
     cliFile = rootProject.file("../../../node_modules/react-native/cli.js")
-    //   RN 0.84 把 Hermes 编译器拆到独立的 hermes-compiler 包。pnpm node-linker=hoisted 下它只在
+    //   RN 0.84 把 Hermes 编译器拆到独立的 hermes-compiler 包。bun hoisted 下它在
     //   monorepo 根 node_modules，而插件默认按 react{ root }（=apps/mobile）查找会落空，故显式指向根。
     //   注意：hermesCommand 走插件分支只做 %OS-BIN% 替换、不补 .exe，所以二进制名要按系统自带。
     def hermescOsBin = System.getProperty("os.name").toLowerCase().contains("windows") ? "win64-bin/hermesc.exe"

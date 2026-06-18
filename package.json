@@ -2,13 +2,18 @@
   "name": "loop-monorepo",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "bun@1.4.0",
+  "workspaces": [
+    "packages/*",
+    "apps/mobile",
+    "apps/desktop"
+  ],
   "scripts": {
-    "build": "pnpm -r --filter=./packages/* build",
-    "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck",
-    "dev:desktop": "pnpm --filter @loop/desktop dev",
-    "dev:mobile": "pnpm --filter @loop/mobile start",
+    "build": "bun run --filter='./packages/*' build",
+    "test": "bun run --filter='*' test",
+    "typecheck": "bun run --filter='*' typecheck",
+    "dev:desktop": "bun run --filter @loop/desktop dev",
+    "dev:mobile": "bun run --filter @loop/mobile start",
     "mcp": "cargo run --manifest-path apps/mcp-server/Cargo.toml"
   },
   "devDependencies": {

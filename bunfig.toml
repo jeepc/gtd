@@ -1,0 +1,6 @@
+[install]
+# React Native (Metro + Gradle) 在 Windows + 软链/隔离布局下无法稳定解析传递依赖
+# （@react-native/codegen、hermes-compiler 等 react-native 的子依赖；@babel/runtime 子路径）。
+# bun 默认的 isolated linker 会建 node_modules/.bun 软链商店，正是会踩坑的布局，
+# 故改用扁平（hoisted）布局，把依赖提升到 monorepo 根 node_modules（等价于旧 pnpm node-linker=hoisted）。
+linker = "hoisted"

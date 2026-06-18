@@ -1,4 +1,9 @@
-export type EntryStatus = 'todo' | 'done' | 'log';
+/**
+ * Entry status (PRD §2.1). `ongoing` (v2.0) is a continuously-in-progress item
+ * that is NOT meant to be ticked off — it is archived or turned into `done`/a
+ * Project by an explicit user action, never auto-completed.
+ */
+export type EntryStatus = 'todo' | 'done' | 'log' | 'ongoing';
 
 /** A metadata value. JSON scalars only (§6.7.4); `null` doubles as a delete sentinel. */
 export type ScalarValue = string | number | boolean | null;
@@ -28,7 +33,96 @@ export interface Entry {
   status: EntryStatus;
   tags: string[];
   date: string;
+  /**
+   * Optional associated Project (v2.0). Null when not linked. Optional in the
+   * type so the legacy markdown path (parser/serializer/vault) keeps compiling
+   * during migration; the SQLite repo always populates it.
+   */
+  project_id?: string | null;
   metadata: EntryMetadata;
+}
+
+// --- v2.0 entities (PRD §2.2 / §2.3) -------------------------------------
+
+/** A goal with a terminal state, carrying a markdown body and linked entries. */
+export interface Project {
+  id: string;
+  name: string;
+  slug: string;
+  status: 'active' | 'archived';
+  /** Markdown body holding goals, notes, milestones. */
+  body: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  metadata: Record<string, ScalarValue>;
+}
+
+/** Recurring habit definition. Progress is computed dynamically from `match`. */
+export interface HabitSchedule {
+  period: 'day' | 'week' | 'month';
+  target_min: number;
+  target_max: number;
+  /** MVP match rule: entries carrying this tag count toward the habit. */
+  match: { tag: string };
+}
+
+export interface Habit {
+  id: string;
+  name: string;
+  slug: string;
+  status: 'active' | 'paused' | 'archived';
+  body: string;
+  schedule: HabitSchedule;
+  created_at: string;
+  updated_at: string;
+  metadata: Record<string, ScalarValue>;
+}
+
+/** Computed progress of a habit for one period (no DB column; derived). */
+export interface HabitProgress {
+  habitId: string;
+  period: HabitSchedule['period'];
+  /** Inclusive period bounds, YYYY-MM-DD. */
+  rangeStart: string;
+  rangeEnd: string;
+  /** Number of matching entries in the current period. */
+  count: number;
+  target_min: number;
+  target_max: number;
+}
+
+// --- Op log (PRD §6.3) ---------------------------------------------------
+
+/** Every kind of mutation recorded in the append-only op log (§6.3.2). */
+export type OpKind =
+  | 'entry.create'
+  | 'entry.update'
+  | 'entry.delete'
+  | 'entry.set_metadata'
+  | 'project.create'
+  | 'project.update'
+  | 'project.archive'
+  | 'project.unarchive'
+  | 'project.delete'
+  | 'habit.create'
+  | 'habit.update'
+  | 'habit.delete'
+  | 'config.set'
+  | 'config.unset';
+
+/**
+ * A single op. `id` is a ULID (time-ordered, drives apply order); `at` is the
+ * wall-clock ISO time used for LWW; `payload` shape depends on `kind` (§6.3.2).
+ */
+export interface Op {
+  id: string;
+  device_id: string;
+  schema_version: number;
+  at: string;
+  kind: OpKind;
+  payload: Record<string, unknown>;
 }
 
 export interface DayFile {

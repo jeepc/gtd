@@ -6,6 +6,7 @@ function prefixFor(status: Entry['status']): string {
   switch (status) {
     case 'todo': return '- [ ]';
     case 'done': return '- [x]';
+    case 'ongoing': return '- [~]'; // v2.0 ongoing; export-snapshot only
     case 'log':  return '-';
   }
 }

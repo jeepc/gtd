@@ -17,6 +17,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { cmd: '/todo', status: 'todo', desc: '待办事项（可勾选完成）' },
   { cmd: '/log', status: 'log', desc: '记录日志（不可勾选）' },
   { cmd: '/done', status: 'done', desc: '直接标记为已完成' },
+  { cmd: '/ongoing', status: 'ongoing', desc: '持续进行中（不打勾）' },
 ];
 
 /**
